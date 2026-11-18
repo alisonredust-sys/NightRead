@@ -17,10 +17,12 @@ ROOT = r'L:\HarnessTest20260904'
 TREES = [
     'prototype',
     'docs',
-    'dist',
     'android/java',
     'android/res',
 ]
+
+# dist 只带安装包，测试截图和过程图不带
+DIST_EXT = ('.apk',)
 
 # 只挑这几个文件带走的目录
 PICK = {
@@ -65,6 +67,15 @@ def main():
             else:
                 os.remove(p)
     os.makedirs(dst, exist_ok=True)
+
+    # dist：只带 .apk
+    dist_src = os.path.join(ROOT, 'dist')
+    dist_dst = os.path.join(dst, 'dist')
+    if os.path.isdir(dist_src):
+        os.makedirs(dist_dst, exist_ok=True)
+        for fn in os.listdir(dist_src):
+            if fn.lower().endswith(DIST_EXT):
+                shutil.copyfile(os.path.join(dist_src, fn), os.path.join(dist_dst, fn))
 
     for rel in TREES:
         src = os.path.join(ROOT, rel.replace('/', os.sep))
