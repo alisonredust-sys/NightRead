@@ -1,0 +1,7 @@
+{
+  "versionCode": 18,
+  "versionName": "0.15",
+  "apk": "https://github.com/USER/REPO/releases/latest",
+  "page": "https://github.com/USER/REPO/releases/latest",
+  "notes": "搜索框改为生成入口；相册选图；后台生成；删空页回滚"
+}

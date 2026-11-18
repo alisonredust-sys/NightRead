@@ -1,0 +1,276 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>长夜 · 自动化冒烟测试</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  body{display:block;overflow:auto;background:#0f0f11;color:#ddd;font:13px/1.75 ui-monospace,Menlo,monospace}
+  body::before{display:none}
+  #out{position:relative;z-index:5;max-width:860px;margin:0 auto;padding:22px}
+  h1{font:600 18px/1.4 system-ui;margin:0 0 4px;color:#f2efe6}
+  .sum{color:#888;margin-bottom:14px}
+  .case{padding:3px 0;border-bottom:1px solid #1d1d22}
+  .pass{color:#5fbf7a}
+  .fail{color:#ff6b6b;white-space:pre-wrap}
+  #phone{position:fixed;right:-9999px;top:0}
+</style>
+</head>
+<body>
+<div id="out"><h1>长夜 · 自动化冒烟测试</h1><div class="sum" id="sum">运行中…</div><div id="cases"></div></div>
+
+<div class="phone" id="phone" data-theme="light">
+  <div class="notch"></div><div id="stage"></div>
+  <div class="mask" id="mask" data-act="closesheet"></div>
+  <div class="sheet" id="sheet"></div>
+  <div class="toast" id="toast"></div>
+  <div class="loadbar" id="loadbar"></div>
+</div>
+
+<script>window.__FAST__=true;</script>
+<script>
+/* 测试用：假模型，替代真实 HTTP。请求体里带任务关键词，按类型返回对应 JSON */
+window.Android = {
+  setLightStatusBar: function () {},
+  httpPost: function (url, key, body, cb) {
+    var kind = body.indexOf('同人') > -1 ? 'doujin' : (body.indexOf('长评') > -1 ? 'long' : 'short');
+    var payload;
+    if (kind === 'short') {
+      var cs = [];
+      for (var i = 0; i < 10; i++) cs.push({ nick: '读者' + i, text: '「雪是后半夜开始下的」这句，测试第 ' + i + ' 条。' });
+      payload = { comments: cs };
+    } else if (kind === 'long') {
+      payload = { items: [
+        { nick: '旧书页', title: '测试长评一', score: 4, body: '一、情节：测试\n\n二、人物：测试' },
+        { nick: '青衫湿', title: '测试长评二', score: 4, body: '一、语言：测试' }] };
+    } else {
+      payload = { items: [{ nick: '匿名', title: '测试同人', body: '我是那盏灯。\n\n雪停了。', tags: ['if线'] }] };
+    }
+    var full = JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] });
+    var b64 = btoa(unescape(encodeURIComponent(full)));
+    setTimeout(function () { window.__http(cb, 200, b64); }, 20);
+  }
+};
+</script>
+<script src="app.js"></script>
+<script>
+window.onerror = function (m, s, l) { var e = document.getElementById('sum'); e.textContent = '脚本错误 ' + m + ' @' + l; e.style.color = '#ff6b6b'; return false; };
+
+const out = document.getElementById('cases');
+const sum = document.getElementById('sum');
+let pass = 0, fail = 0;
+
+function log(ok, name, msg) {
+  ok ? pass++ : fail++;
+  const d = document.createElement('div');
+  d.className = 'case ' + (ok ? 'pass' : 'fail');
+  d.textContent = (ok ? 'PASS  ' : 'FAIL  ') + name + (msg ? '  →  ' + msg : '');
+  out.appendChild(d);
+}
+function assert(c, m) { if (!c) throw new Error(m || 'assert failed'); }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const q = (s) => document.querySelector(s);
+const qa = (s) => [...document.querySelectorAll(s)];
+const click = (s) => { const el = q(s); assert(el, '找不到 ' + s); el.click(); };
+const A = window.__dbg;
+A.S.api.key = 'test';
+A.S.api.model = 'deepseek-chat';
+
+let errs = [];
+window.addEventListener('error', (e) => errs.push(e.message));
+
+async function step(name, fn) {
+  errs = [];
+  try {
+    await fn();
+    await sleep(40);
+    assert(errs.length === 0, 'JS 报错: ' + errs.join(' | '));
+    log(true, name);
+  } catch (e) {
+    log(false, name, e.message);
+  }
+}
+
+(async function run() {
+  await step('01 冷启动 · 书架为空', () => {
+    assert(A.S.series.length === 0, '初始应有 0 个系列');
+    assert(q('.drawer'), '没有抽屉节点');
+    assert(!q('.drawer.on'), '抽屉不该默认打开');
+  });
+
+  await step('02 打开抽屉', () => {
+    click('[data-act="drawer"]');
+    assert(q('.drawer.on'), '抽屉没打开');
+  });
+
+  await step('03 点遮罩关闭抽屉', () => {
+    click('.drawer-mask');
+    assert(!q('.drawer.on'), '遮罩点击无效');
+  });
+
+  await step('04 新建系列页可打开', () => {
+    click('[data-act="drawer"]');
+    click('[data-act="newseries"]');
+    assert(q('[data-act="edsave"]'), '没进入编辑页');
+    assert(q('#ed-title'), '缺少书名字段');
+    assert(q('#ed-intro'), '缺少简介字段');
+  });
+
+  await step('05 空书名被拦截', () => {
+    click('[data-act="edsave"]');
+    assert(A.S.series.length === 0, '空书名居然创建了');
+  });
+
+  await step('06 填书名提交 → 进入系列页', () => {
+    q('#ed-title').value = '测试之书';
+    click('[data-act="edsave"]');
+    assert(A.S.series.length === 1, '系列没创建');
+    assert(A.S.series[0].title === '测试之书', '书名不对');
+    assert(A.nav.stack.length === 2, '没进入系列页');
+    assert(q('.book-title').textContent.indexOf('测试之书') > -1, '系列页没显示书名');
+  });
+
+  await step('07 系列页返回 → 门面', () => {
+    click('[data-act="back"]');
+    assert(A.nav.stack.length === 1, '返回无效');
+    assert(q('.home-brand'), '没回到门面');
+  });
+
+  await step('08 系列页 → 点「正文」', () => {
+    A.openSeries(A.S.series[0].id);
+    click('[data-view="works"]');
+    assert(A.nav.stack.length === 3, '没进入正文列表');
+    assert(q('.empty2'), '空正文应显示空态');
+  });
+
+  await step('09 返回 → 点「设定集」', () => {
+    click('[data-act="back"]');
+    click('[data-view="codex"]');
+    assert(q('.empty2'), '空设定集应显示空态');
+  });
+
+  await step('10 导入第一篇正文', () => {
+    click('[data-act="back"]');
+    click('[data-view="works"]');
+    click('[data-act="newwork"]');
+    q('#ed-title').value = '第一章';
+    q('#ed-text').value = '雪是后半夜开始下的。林昭醒来的时候，窗纸已经被映得发白。这盏灯已经三年没有点过了。';
+    click('[data-act="edsave"]');
+    assert(A.S.series[0].works.length === 1, '正文没保存');
+    assert(qa('.entry').length >= 1, '列表没刷新');
+  });
+
+  await step('11 打开作品 → 短评自动生成 10 条', async () => {
+    click('[data-act="openwork"]');
+    click('[data-act="tab"][data-t="short"]');
+    await sleep(200);
+    const s = A.S.series[0];
+    const g = s.gen['work:' + s.works[0].id + ':short'];
+    assert(g && g.streams[''] && g.streams[''].batches.length === 1, '没生成第一批');
+    assert(qa('.cmt').length === 10, '应有 10 条，实际 ' + qa('.cmt').length);
+  });
+
+  await step('12 短评单条 ≤100 字', () => {
+    const s = A.S.series[0];
+    const batch = s.gen['work:' + s.works[0].id + ':short'].streams[''].batches[0];
+    const bad = batch.filter((c) => c.text.length > 100);
+    assert(bad.length === 0, bad.length + ' 条超长：' + (bad[0] ? bad[0].text.length : ''));
+  });
+
+  await step('13 长按删除一条短评', async () => {
+    qa('.cmt')[0].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }));
+    await sleep(620);
+    assert(q('.sheet.on'), '长按没菜单');
+    click('[data-act="delcomment"]');
+    await sleep(80);
+    assert(qa('.cmt').length === 9, '删除后应剩 9 条，实际 ' + qa('.cmt').length);
+  });
+
+  await step('14 长评生成 2 篇', async () => {
+    click('[data-act="tab"][data-t="long"]');
+    await sleep(200);
+    assert(qa('.longcard').length === 2, '长评应有 2 篇，实际 ' + qa('.longcard').length);
+  });
+
+  await step('15 同人生成 1 篇', async () => {
+    click('[data-act="back"]');
+    click('[data-act="back"]');
+    click('[data-view="doujin"]');
+    await sleep(200);
+    assert(q('.dj h3'), '同人没生成');
+  });
+
+  await step('16 设定集新建一则', () => {
+    click('[data-act="back"]');
+    click('[data-view="codex"]');
+    click('[data-act="newcodex"]');
+    q('#ed-title').value = '守夜人的边界';
+    q('#ed-body').value = '不能救人，只能拖延。';
+    click('[data-act="edsave"]');
+    assert(A.S.series[0].codex.length === 1, '设定没保存');
+    assert(qa('.card').length >= 1, '列表没刷新');
+  });
+
+  await step('17 长按删除设定', async () => {
+    qa('.card')[0].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }));
+    await sleep(620);
+    click('[data-act="docdelcodex"]');
+    await sleep(80);
+    assert(A.S.series[0].codex.length === 0, '设定没删掉');
+  });
+
+  await step('18 设置页可达（抽屉⚙）', () => {
+    A.nav.stack = [{ view: 'home', params: {} }];
+    A.nav.drawer = true; A.render();
+    click('[data-view="settings"]');
+    assert(A.nav.stack.length === 2, '设置没打开');
+    assert(q('.avatar-lg'), '设置页没渲染');
+  });
+
+  await step('19 背景图集切换', () => {
+    A.go('bgmgr', {});
+    assert(q('.album-seg'), '图集页没渲染');
+    click('[data-act="album"][data-a="custom"]');
+    assert(A.S.bg.album === 'custom', '没切到自定义');
+    assert(q('.bg-thumb.add'), '自定义页缺添加按钮');
+  });
+
+  await step('20 长按删除作品', async () => {
+    A.nav.stack = [{ view: 'home', params: {} }];
+    const s = A.S.series[0];
+    A.openSeries(s.id);
+    A.go('works', { sid: s.id });
+    qa('.entry')[0].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }));
+    await sleep(620);
+    click('[data-act="docdelwork"]');
+    await sleep(80);
+    assert(A.S.series[0].works.length === 0, '作品没删掉');
+  });
+
+  await step('21 删除系列 → 回门面', () => {
+    A.nav.stack = [{ view: 'home', params: {} }, { view: 'series', params: { sid: A.S.series[0].id } }];
+    A.render();
+    click('[data-act="seriesmenu"]');
+    click('[data-act="delseries"]');
+    assert(q('.sheet.on'), '删除确认没弹出');
+    click('[data-act="docdelseries"]');
+    assert(A.S.series.length === 0, '系列没删掉');
+    assert(A.nav.stack.length === 1, '没回门面');
+  });
+
+  await step('22 API 页有测试连接/刷新', () => {
+    A.nav.stack = [{ view: 'home', params: {} }, { view: 'real', params: {} }];
+    A.render();
+    assert(q('[data-act="testapi"]'), '缺少测试连接');
+    assert(q('[data-act="refreshbal"]'), '缺少刷新余额');
+    assert(q('.api-row'), '缺少状态行');
+  });
+
+  sum.textContent = '共 ' + (pass + fail) + ' 项 · 通过 ' + pass + ' · 失败 ' + fail;
+  sum.style.color = fail ? '#ff6b6b' : '#5fbf7a';
+  document.body.setAttribute('data-done', '1');
+})();
+</script>
+</body>
+</html>
