@@ -6,9 +6,9 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 18;
-const APP_VER_NAME = '0.15';
-const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/USER/REPO/main/version.json';
+const APP_VER = 20;
+const APP_VER_NAME = '0.17';
+const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
   tempShort: 1.0, tempLong: 0.85, tempDoujin: 0.9,
@@ -283,7 +283,10 @@ function streamOf(s, key, angle) {
   const g = genOf(s, key);
   const a = angle || '';
   if (!g.streams[a]) g.streams[a] = { batches: [], page: 0, loading: false };
-  return g.streams[a];
+  const st = g.streams[a];
+  st.batches = (st.batches || []).filter(function (b) { return b && b.length; });
+  if (st.page > st.batches.length - 1) st.page = Math.max(0, st.batches.length - 1);
+  return st;
 }
 
 function currentSeries() {
@@ -368,10 +371,10 @@ function avatarOf(name, hue) {
   const ch = (name || '读')[0];
   return `<div class="avatar" style="background:hsl(${hue} 42% 44%)">${esc(ch)}</div>`;
 }
-function pager(page, total) {
+function pager(page, total, key) {
   return `<div class="pager">
     <button data-act="prev" ${page <= 0 ? 'disabled' : ''}>‹ 上一页</button>
-    <span class="pg">第 ${page + 1} 页</span>
+    <button class="pg" data-act="pagesel" data-key="${key || ''}">第 ${page + 1}${total ? ' / ' + total : ''} 页</button>
     <button data-act="next">下一页 ›</button>
   </div>`;
 }
@@ -538,6 +541,41 @@ function pagerState(s, key) {
   return [st.page, st.batches.length];
 }
 
+function curGenKey() {
+  const c = cur();
+  if (c.view === 'doujin') return 'doujin';
+  if (c.view === 'sreview') return (nav.tab.sreview || 'short') === 'short' ? 'series_short' : 'series_long';
+  if (c.view === 'work') {
+    const t = nav.tab.work || 'text';
+    return 'work:' + c.params.wid + ':' + (t === 'long' ? 'long' : 'short');
+  }
+  return '';
+}
+
+function histList() {
+  const key = curGenKey();
+  const s = seriesById(cur().params.sid);
+  if (!s || !s.gen || !s.gen[key]) return [];
+  const g = s.gen[key];
+  return Object.keys(g.streams || {})
+    .filter(function (a) { return a && a.trim(); })
+    .map(function (a) { return { angle: a, pages: g.streams[a].batches.length }; })
+    .filter(function (h) { return h.pages > 0; });
+}
+
+function histRows(angle) {
+  const list = histList();
+  if (!list.length) return '';
+  return list.map(function (h) {
+    const on = h.angle === angle;
+    return '<div class="hist-row' + (on ? ' on' : '') + '" data-q="' + esc(h.angle) + '">' +
+      '<button class="h-main" data-act="search" data-w="' + esc(h.angle) + '">' +
+      '<span class="h-q">' + esc(h.angle) + '</span>' +
+      '<span class="h-n">' + h.pages + ' 页</span></button>' +
+      '<button class="h-del" data-act="delhist" data-w="' + esc(h.angle) + '">×</button></div>';
+  }).join('');
+}
+
 function applySearch(v) {
   let q = v;
   if (q == null) {
@@ -558,8 +596,9 @@ function searchBar(angle, presets, showChips) {
       ${angle ? '<button class="clear" data-act="clearq">×</button>' : ''}
       <button class="qgo" data-act="search">搜索</button>
     </div>
+    <div class="hist" id="hist">${histRows(angle)}</div>
   </div>
-  ${showChips && !angle ? `<div class="chips">${presets.map((w) => `<button class="chip" data-act="chip" data-w="${w}">${w}</button>`).join('')}</div>` : ''}`;
+  ${showChips && !angle ? `<div class="chips">${presets.map((w) => `<button class="chip" data-act="search" data-w="${w}">${w}</button>`).join('')}</div>` : ''}`;
 }
 
 function commentBlock(s, key, kind) {
@@ -683,7 +722,7 @@ function vSReview() {
       <button class="${tab === 'long' ? 'on' : ''}" data-act="tab2" data-t="long">长评</button>
     </div>
     <div class="scroll">${body}</div>
-    ${pager(...pagerState(s, key))}
+    ${pager(pagerState(s, key)[0], pagerState(s, key)[1], key)}
   </div>`;
 }
 
@@ -692,9 +731,17 @@ function vDoujin() {
   const key = 'doujin';
   const st = streamOf(s, key, cur().params.angle || '');
   if (!st.batches.length) {
+    if (st.err) return `<div class="screen">${hdr('同人')}<div class="scroll">${genError(st, key)}</div>${pager(0, 0, key)}</div>`;
+    if (st.suppress) {
+      return `<div class="screen">${hdr('同人')}<div class="scroll">` +
+        `<div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false)}</div>` +
+        `<div class="empty2"><div class="e1">·</div><div class="e2">这一篇已删除</div>` +
+        `<div class="e3">要新的就再生成一篇</div>` +
+        `<button class="btn-ghost" data-act="gennow" data-key="${key}">生成一篇</button></div></div>` +
+        `${pager(0, 0, key)}</div>`;
+    }
     if (!st.loading) setTimeout(() => generate(s.id, key, 'doujin'), 30);
-    if (st.err) return `<div class="screen">${hdr('同人')}<div class="scroll">${genError(st, key)}</div>${pager(0, 0)}</div>`;
-    return `<div class="screen">${hdr('同人')}<div class="scroll">${skeleton(1)}</div>${pager(0, 0)}</div>`;
+    return `<div class="screen">${hdr('同人')}<div class="scroll">${skeleton(1)}</div>${pager(0, 0, key)}</div>`;
   }
   const d = (st.batches[st.page] || [])[0];
   return `<div class="screen">
@@ -708,7 +755,7 @@ function vDoujin() {
         <div class="text">${d.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
       </div>` : emptyBox('还没有同人', '', '', '')}
     </div>
-    ${pager(...pagerState(s, key))}
+    ${pager(pagerState(s, key)[0], pagerState(s, key)[1], key)}
   </div>`;
 }
 
@@ -746,7 +793,7 @@ function vSettings() {
         <div class="sect-title">关于</div>
         <div class="grp">
           <div class="row" style="cursor:default"><span class="l">版本</span><span class="r">v${APP_VER_NAME}（${APP_VER}）</span></div>
-          <div class="field"><label>更新地址（version.json）</label><input id="upd-url" class="upd-in" value="${esc(S.updateUrl || '')}" placeholder="https://raw.githubusercontent.com/…/version.json"></div>
+          <div class="field"><label>更新地址（version.json）</label><input id="upd-url" class="upd-in" value="${esc(S.updateUrl || DEFAULT_UPDATE_URL)}" placeholder="https://raw.githubusercontent.com/…/version.json"></div>
         </div>
         <div class="api-actions">
           <button class="btn-line" data-act="checkupdate">检查更新</button>
@@ -927,6 +974,7 @@ function checkUpdate() {
   const el = document.getElementById('upd-url');
   const url = ((el && el.value) || S.updateUrl || DEFAULT_UPDATE_URL).trim();
   if (!url || url.indexOf('USER/REPO') > -1) { toast('先填更新地址'); return; }
+  if (!S.updateUrl) S.updateUrl = url;
   S.updateUrl = url; save();
   toast('检查中…');
   apiGetUrl(url, function (code, body) {
@@ -1270,7 +1318,46 @@ document.addEventListener('click', (e) => {
   if (act === 'newcodex') { newCodex(); return; }
 
   if (act === 'chip') { applySearch(el.dataset.w); return; }
-  if (act === 'search') { applySearch(); return; }
+  if (act === 'search') { applySearch(el.dataset.w); return; }
+  if (act === 'delhist') {
+    const q = el.dataset.w;
+    const key = curGenKey();
+    const ss = seriesById(cur().params.sid);
+    const pages = (ss && ss.gen && ss.gen[key] && ss.gen[key].streams[q]) ? ss.gen[key].streams[q].batches.length : 0;
+    openSheet('<div class="sh-title">删除搜索记录</div>' +
+      '<div class="srow" style="cursor:default;line-height:1.7">「' + esc(q) + '」及它的 ' + pages + ' 页生成内容会一起删除，无法恢复。</div>' +
+      '<div class="srow danger" data-act="doDelHist" data-w="' + esc(q) + '" data-key="' + key + '">确认删除</div>');
+    return;
+  }
+  if (act === 'doDelHist') {
+    const q = el.dataset.w;
+    const key = el.dataset.key;
+    const ss = seriesById(cur().params.sid);
+    if (ss && ss.gen && ss.gen[key] && ss.gen[key].streams) {
+      delete ss.gen[key].streams[q];
+    }
+    if (cur().params.angle === q) cur().params.angle = '';
+    save(); closeSheet(); render(); toast('已删除');
+    return;
+  }
+  if (act === 'pagesel') {
+    const key = el.dataset.key || curGenKey();
+    const ss = seriesById(cur().params.sid);
+    const st = streamOf(ss, key, cur().params.angle || '');
+    if (!st.batches.length) { toast('还没有生成内容'); return; }
+    const rows = st.batches.map(function (b, i) {
+      return '<div class="srow' + (i === st.page ? ' on' : '') + '" data-act="gotopage" data-p="' + i + '">第 ' + (i + 1) + ' 页 · ' + b.length + ' 条</div>';
+    }).join('');
+    openSheet('<div class="sh-title">跳到第几页（共 ' + st.batches.length + ' 页）</div>' + rows);
+    return;
+  }
+  if (act === 'gotopage') {
+    const key = curGenKey();
+    const ss = seriesById(cur().params.sid);
+    const st = streamOf(ss, key, cur().params.angle || '');
+    st.page = Math.max(0, Math.min(parseInt(el.dataset.p, 10) || 0, st.batches.length - 1));
+    closeSheet(); render(); return;
+  }
   if (act === 'clearq') { const cc = cur(); cc.params.angle = ''; render(); return; }
   if (act === 'prev' || act === 'next') {
     const s = seriesById(c.params.sid);
@@ -1468,6 +1555,9 @@ function delDoujin(el) {
       const i = b.findIndex((x) => x.id === el.dataset.cid);
       if (i > -1) b.splice(i, 1);
     });
+    st.batches = st.batches.filter(function (b) { return b.length > 0; });
+    if (!st.batches.length) st.suppress = true;
+    clampStream(st);
   });
   save(); closeSheet(); render();
 }
@@ -1700,6 +1790,17 @@ document.addEventListener('keydown', function (e) {
 });
 
 document.addEventListener('input', function (e) {
+  if (e.target && e.target.id === 'q') {
+    const q = e.target.value.trim().toLowerCase();
+    const box = document.getElementById('hist');
+    if (box) {
+      Array.prototype.forEach.call(box.querySelectorAll('.hist-row'), function (row) {
+        const k = (row.dataset.q || '').toLowerCase();
+        row.style.display = (!q || k.indexOf(q) > -1) ? '' : 'none';
+      });
+    }
+    return;
+  }
   const u = e.target;
   if (u && u.classList && u.classList.contains('upd-in')) { S.updateUrl = u.value.trim(); save(); return; }
   const el = e.target;

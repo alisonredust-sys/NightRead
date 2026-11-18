@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "0.15",
-  "apk": "https://github.com/USER/REPO/releases/latest",
-  "page": "https://github.com/USER/REPO/releases/latest",
-  "notes": "搜索框改为生成入口；相册选图；后台生成；删空页回滚"
+  "versionCode": 20,
+  "versionName": "0.17",
+  "apk": "https://github.com/alisonredust-sys/NightRead/releases/latest",
+  "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
+  "notes": "同人删除后可重新生成；页码显示与跳页；搜索历史模糊匹配与删除"
 }
