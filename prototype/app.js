@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 20;
-const APP_VER_NAME = '0.17';
+const APP_VER = 21;
+const APP_VER_NAME = '0.18';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -297,7 +297,26 @@ function currentSeries() {
 function sourceTextFor(key, sid) {
   const s = seriesById(sid);
   if (!s) return '';
+
+  // 同人：整个系列的全部正文 + 全部设定集
+  if (key === 'doujin') {
+    const parts = [];
+    const body = (s.works || []).map(function (w) {
+      return '《' + (w.title || '正文') + '》\n' + (w.text || '');
+    }).join('\n\n');
+    if (body) parts.push('【正文】\n' + body);
+    if (s.codex && s.codex.length) {
+      parts.push('【设定集】\n' + s.codex.map(function (c) {
+        return (c.title || '') + '：' + (c.body || '');
+      }).join('\n\n'));
+    }
+    return parts.join('\n\n');
+  }
+
+  // 系列评论：所有正文
   if (key.startsWith('s')) return s.works.map((w) => w.text).join('\n');
+
+  // 单章评论：只发这一章
   const c = cur();
   const w = workById(s, c.params.wid) || s.works[0];
   return w ? w.text : '';
