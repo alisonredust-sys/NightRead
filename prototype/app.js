@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 25;
-const APP_VER_NAME = '0.22';
+const APP_VER = 26;
+const APP_VER_NAME = '0.23';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -645,7 +645,7 @@ function commentBlock(s, key, kind) {
       return `<div class="pad">${searchBar(angle, PRESETS.short, true)}</div>
         <div class="empty2"><div class="e1">·</div><div class="e2">这一页已删除</div>
         <div class="e3">要新的就再生成一批</div>
-        <button class="btn-ghost" data-act="gennow" data-key="${key}">生成一批</button></div>`;
+        <button class="btn-ghost" data-act="gennow" data-key="${key}">重新生成</button></div>`;
     }
     if (!st.loading) { setTimeout(() => generate(s.id, key, kind), 30); }
     return `<div class="pad">${searchBar(angle, PRESETS.short, true)}</div>` + skeleton(5);
@@ -668,6 +668,12 @@ function longBlock(s, key) {
   const st = streamOf(s, key, angle);
   if (st.err) return `<div class="pad">${searchBar(angle, PRESETS.long, true)}</div>` + genError(st, key);
   if (!st.batches.length) {
+    if (st.suppress) {
+      return `<div class="pad">${searchBar(angle, PRESETS.long, true)}</div>
+        <div class="empty2"><div class="e1">·</div><div class="e2">这一页已删除</div>
+        <div class="e3">要新的就再生成一批</div>
+        <button class="btn-ghost" data-act="gennow" data-key="${key}">重新生成</button></div>`;
+    }
     if (!st.loading) { setTimeout(() => generate(s.id, key, 'long'), 30); }
     return `<div class="pad">${searchBar(angle, PRESETS.long, true)}</div>` + skeleton(2);
   }
@@ -776,7 +782,7 @@ function vDoujin() {
         `<div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false)}</div>` +
         `<div class="empty2"><div class="e1">·</div><div class="e2">这一篇已删除</div>` +
         `<div class="e3">要新的就再生成一篇</div>` +
-        `<button class="btn-ghost" data-act="gennow" data-key="${key}">生成一篇</button></div></div>` +
+        `<button class="btn-ghost" data-act="gennow" data-key="${key}">重新生成</button></div></div>` +
         `${pager(0, 0, key)}</div>`;
     }
     if (!st.loading) setTimeout(() => generate(s.id, key, 'doujin'), 30);
@@ -1413,11 +1419,15 @@ document.addEventListener('click', (e) => {
     const s = seriesById(c.params.sid);
     const key = keyOf(c);
     const st = streamOf(s, key, c.params.angle || '');
-    if (act === 'prev') { if (st.page > 0) { st.page--; render(); } }
-    else {
-      if (st.page < st.batches.length - 1) { st.page++; render(); }
-      else { generate(s.id, key, kindOf(key)); }
+    clampStream(st);
+    const last = st.batches.length - 1;
+    if (act === 'prev') {
+      if (st.page > 0) { st.page--; render(); }
+      return;
     }
+    if (st.page < last) { st.page++; render(); return; }
+    if (st.page === last) { if (!st.loading) generate(s.id, key, kindOf(key)); return; }
+    render();
     return;
   }
   if (act === 'cmtmenu' || act === 'cvmenu' || act === 'djmenu') { openItemMenu(act, el); return; }
