@@ -33,6 +33,7 @@ public class MainActivity extends Activity {
     private boolean pageReady = false;
     private android.webkit.ValueCallback<Uri[]> fileCb = null;
     private static final int FILE_REQ = 4321;
+    private android.os.PowerManager.WakeLock wake = null;
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -161,6 +162,27 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void holdWake(boolean on) {
+        try {
+            if (wake == null) {
+                android.os.PowerManager pm =
+                        (android.os.PowerManager) getSystemService(android.content.Context.POWER_SERVICE);
+                wake = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "nightread:gen");
+                wake.setReferenceCounted(false);
+            }
+            if (on) {
+                if (!wake.isHeld()) {
+                    wake.acquire(10 * 60 * 1000L);
+                }
+            } else {
+                if (wake.isHeld()) {
+                    wake.release();
+                }
+            }
+        } catch (Exception e) {
+        }
+    }
+
     private boolean isSystemDark() {
         int mode = getResources().getConfiguration().uiMode
                 & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
@@ -227,6 +249,7 @@ public class MainActivity extends Activity {
                     int code = -1;
                     String out = "";
                     try {
+                        holdWake(true);
                         java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
                         c.setRequestMethod("POST");
                         c.setConnectTimeout(20000);
@@ -254,6 +277,8 @@ public class MainActivity extends Activity {
                         code = -2;
                     } catch (Exception e) {
                         code = -1;
+                    } finally {
+                        holdWake(false);
                     }
                     final String b64 = android.util.Base64.encodeToString(
                             out.getBytes(java.nio.charset.StandardCharsets.UTF_8),

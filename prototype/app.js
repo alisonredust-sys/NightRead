@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 22;
-const APP_VER_NAME = '0.19';
+const APP_VER = 23;
+const APP_VER_NAME = '0.20';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -322,7 +322,7 @@ function sourceTextFor(key, sid) {
   return w ? w.text : '';
 }
 
-function generate(sid, key, kind) {
+function generate(sid, key, kind, isRetry) {
   const s = seriesById(sid);
   if (!s) return;
   const c = cur();
@@ -344,8 +344,19 @@ function generate(sid, key, kind) {
   apiPost('/chat/completions', payload, function (code, body) {
     st.loading = false;
     if (code === -2) { st.err = 'nokey'; render(); return; }
-    if (code === -2) { st.err = 'timeout'; render(); return; }
-    if (code === -1) { st.err = 'net'; render(); return; }
+    if (code === -2 || code === -1) {
+      // 切后台常常把连接掐断，先静默重试一次
+      if (!isRetry) {
+        st.loading = false;
+        render();
+        setTimeout(function () { generate(sid, key, kind, true); }, 1200);
+        return;
+      }
+      st.loading = false;
+      st.err = (code === -2 ? 'timeout' : 'net');
+      render();
+      return;
+    }
     if (code !== 200) {
       st.err = (code === 401 ? 'auth' : (code === 402 ? 'nobalance' : 'HTTP ' + code));
       st.errMsg = apiErrMsg(body);
@@ -677,7 +688,11 @@ function genError(st, key) {
   const wasCut = st.errCode === 'length';
   const hint = wasCut
     ? '输出被 max_tokens 截断了。可以提高上限再试，或在设置里调大。'
-    : '评论由模型生成，需要先在设置里填好 API Key 和模型';
+    : (isKey
+      ? '去设置里填 API Key 和模型'
+      : (st.err === 'net' || st.err === 'timeout' || st.err === 'interrupted'
+        ? '生成时切到后台容易断。点重试继续，或把 App 留在前台。'
+        : '评论由模型生成，需要先在设置里填好 API Key 和模型'));
   const btnMain = isKey
     ? '<button class="btn-ghost" data-act="go" data-view="real">去设置</button>'
     : (wasCut
