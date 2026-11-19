@@ -940,3 +940,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .cat-mv button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink-2);font-size:13px;cursor:pointer}
 .cat-mv button:disabled{opacity:.3}
 .cat-mv button:active{background:var(--surface-2)}
+
+/* 历史按钮 */
+.qhist{height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);background:transparent;color:var(--ink-2);font:13px inherit;cursor:pointer;margin-left:6px;flex:0 0 auto}
+.qhist:active{background:var(--surface-2)}

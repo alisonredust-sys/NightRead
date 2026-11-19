@@ -1,7 +1,7 @@
 {
-  "versionCode": 27,
-  "versionName": "0.24",
+  "versionCode": 28,
+  "versionName": "0.25",
   "apk": "https://github.com/alisonredust-sys/NightRead/releases/latest",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "正文按分类分组，分类内和分类间可手动排序"
+  "notes": "振动反馈可调；搜索历史折叠；滚动位置记忆"
 }

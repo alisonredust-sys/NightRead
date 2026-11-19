@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 27;
-const APP_VER_NAME = '0.24';
+const APP_VER = 28;
+const APP_VER_NAME = '0.25';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -26,6 +26,7 @@ let S = {
   tune: Object.assign({}, DEFAULT_TUNE),
   prompts: { short: '', long: '', doujin: '' },
   updateUrl: '',
+  haptic: { on: true, level: 2 },
   series: [],
 };
 
@@ -654,9 +655,10 @@ function searchBar(angle, presets, showChips) {
       <span class="mag">⌕</span>
       <input id="q" placeholder="输入关键词，回车生成" value="${esc(angle || '')}" autocomplete="off">
       ${angle ? '<button class="clear" data-act="clearq">×</button>' : ''}
+      <button class="qhist" data-act="togglehist">历史</button>
       <button class="qgo" data-act="search">搜索</button>
     </div>
-    <div class="hist" id="hist">${histRows(angle)}</div>
+    <div class="hist" id="hist" style="${nav.histOpen ? '' : 'display:none'}">${histRows(angle)}</div>
   </div>
   ${showChips && !angle ? `<div class="chips">${presets.map((w) => `<button class="chip" data-act="search" data-w="${w}">${w}</button>`).join('')}</div>` : ''}`;
 }
@@ -840,6 +842,12 @@ function vDoujin() {
   </div>`;
 }
 
+function hapticLabel() {
+  const h = S.haptic || { on: true, level: 2 };
+  if (h.on === false || !h.level) return '关闭';
+  return ['', '轻', '中', '重'][h.level] || '中';
+}
+
 function vSettings() {
   const a = S.author;
   return `<div class="screen">
@@ -859,6 +867,9 @@ function vSettings() {
         <div class="grp">
           <div class="row" data-act="theme">
             <span class="l">主题</span><span class="r">${themeLabel()}</span><span class="chev">›</span>
+          </div>
+          <div class="row" data-act="haptic">
+            <span class="l">振动反馈</span><span class="r">${hapticLabel()}</span><span class="chev">›</span>
           </div>
           <div class="row" data-act="go" data-view="bgmgr">
             <span class="l">背景</span><span class="r">${S.bg.album === 'default' ? '默认图集' : '自定义'} · ${albumList().length} 张</span><span class="chev">›</span>
@@ -1218,14 +1229,60 @@ function themeLabel() {
   return S.theme === 'auto' ? '跟随系统' : (S.theme === 'dark' ? '深色' : '浅色');
 }
 
+const SCROLL_STORE = 'nightread_scroll_v1';
+let scrollMemo = {};
+try { scrollMemo = JSON.parse(localStorage.getItem(SCROLL_STORE) || '{}') || {}; } catch (e) { scrollMemo = {}; }
+let lastScrollKey = '';
+let scrollSaveT = null;
+
+function curKey() {
+  const c = cur();
+  return [c.view, c.params.sid || '', c.params.wid || '', nav.tab.work || '', nav.tab.sreview || '', c.params.angle || ''].join('|');
+}
+
+function persistScroll() {
+  clearTimeout(scrollSaveT);
+  scrollSaveT = setTimeout(function () {
+    try {
+      const keys = Object.keys(scrollMemo);
+      if (keys.length > 60) {
+        const keep = {};
+        keys.slice(-40).forEach(function (k) { keep[k] = scrollMemo[k]; });
+        scrollMemo = keep;
+      }
+      localStorage.setItem(SCROLL_STORE, JSON.stringify(scrollMemo));
+    } catch (e) {}
+  }, 400);
+}
+
+function haptic() {
+  const h = S.haptic || { on: true, level: 2 };
+  if (h.on === false || !h.level) return;
+  const ms = [0, 8, 16, 28][h.level] || 16;
+  const amp = [0, 60, 130, 220][h.level] || 130;
+  try {
+    if (window.Android && Android.vibrate) Android.vibrate(ms, amp);
+    else if (navigator.vibrate) navigator.vibrate(ms);
+  } catch (e) {}
+}
+
 function render() {
   const c = cur();
   const fn = VIEWS[c.view] || vHome;
   phone.dataset.theme = resolvedTheme();
   phone.classList.toggle('onbg', c.view === 'home' && !nav.drawer);
   if (window.Android && Android.setLightStatusBar) Android.setLightStatusBar(resolvedTheme() === 'light' && (c.view !== 'home' || nav.drawer));
+  const k = curKey();
+  const oldSc = stage.querySelector('.scroll');
+  if (oldSc && lastScrollKey === k) {
+    scrollMemo[k] = oldSc.scrollTop;
+    persistScroll();
+  }
+  lastScrollKey = k;
   const html = fn();
   stage.innerHTML = html;
+  const newSc = stage.querySelector('.scroll');
+  if (newSc && scrollMemo[k]) newSc.scrollTop = scrollMemo[k];
 }
 
 /* ================= 弹层 ================= */
@@ -1388,18 +1445,19 @@ document.addEventListener('click', (e) => {
   if (act === 'closedrawer') { nav.drawer = false; render(); return; }
   if (act === 'openser') { openSeries(el.dataset.sid); return; }
   if (act === 'newseries') { newSeries(); return; }
-  if (act === 'back') { back(); return; }
+  if (act === 'back') { haptic(); back(); return; }
   if (act === 'go') { go(el.dataset.view, { sid: c.params.sid }); return; }
 
   if (act === 'openwork') { nav.tab.work = cur().view === 'work' ? nav.tab.work : 'text'; go('work', { sid: c.params.sid, wid: el.dataset.wid }); return; }
-  if (act === 'tab') { nav.tab.work = el.dataset.t; render(); return; }
-  if (act === 'tab2') { nav.tab.sreview = el.dataset.t; render(); return; }
+  if (act === 'tab') { haptic(); nav.tab.work = el.dataset.t; render(); return; }
+  if (act === 'tab2') { haptic(); nav.tab.sreview = el.dataset.t; render(); return; }
 
   if (act === 'newwork') { newWork(); return; }
   if (act === 'newcodex') { newCodex(); return; }
 
   if (act === 'chip') { applySearch(el.dataset.w); return; }
-  if (act === 'search') { applySearch(el.dataset.w); return; }
+  if (act === 'togglehist') { nav.histOpen = !nav.histOpen; haptic(); render(); return; }
+  if (act === 'search') { haptic(); applySearch(el.dataset.w); return; }
   if (act === 'delhist') {
     const q = el.dataset.w;
     const key = curGenKey();
@@ -1441,16 +1499,17 @@ document.addEventListener('click', (e) => {
   }
   if (act === 'clearq') { const cc = cur(); cc.params.angle = ''; render(); return; }
   if (act === 'prev' || act === 'next') {
+    haptic();
     const s = seriesById(c.params.sid);
     const key = keyOf(c);
     const st = streamOf(s, key, c.params.angle || '');
     clampStream(st);
     const last = st.batches.length - 1;
     if (act === 'prev') {
-      if (st.page > 0) { st.page--; render(); }
+      if (st.page > 0) { st.page--; scrollMemo[curKey()] = 0; persistScroll(); render(); }
       return;
     }
-    if (st.page < last) { st.page++; render(); return; }
+    if (st.page < last) { st.page++; scrollMemo[curKey()] = 0; persistScroll(); render(); return; }
     if (st.page === last) { if (!st.loading) generate(s.id, key, kindOf(key)); return; }
     render();
     return;
@@ -1540,6 +1599,13 @@ document.addEventListener('click', (e) => {
   if (act === 'delseries') { closeSheet(); delSeries(el.dataset.sid); return; }
 
   if (act === 'editauthor') { openEditor('author', { values: { id: S.author.id } }); return; }
+  if (act === 'haptic') {
+    const h = S.haptic || { on: true, level: 2 };
+    if (h.level >= 3) { S.haptic = { on: false, level: 0 }; }
+    else { S.haptic = { on: true, level: (h.level || 0) + 1 }; }
+    save(); haptic(); render(); toast(hapticLabel());
+    return;
+  }
   if (act === 'theme') {
     S.theme = S.theme === 'light' ? 'dark' : (S.theme === 'dark' ? 'auto' : 'light');
     save(); render(); toast(themeLabel()); return;
@@ -1957,6 +2023,14 @@ document.addEventListener('input', function (e) {
   S.prompts[k] = v === buildSystem(k, 0, '{n}') ? '' : v;
   save();
 });
+
+/* 滚动位置记忆 */
+stage.addEventListener('scroll', function (e) {
+  const t = e.target;
+  if (!t || !t.classList || !t.classList.contains('scroll')) return;
+  scrollMemo[curKey()] = t.scrollTop;
+  persistScroll();
+}, true);
 
 /* 生成参数：输入即保存 */
 document.addEventListener('input', function (e) {

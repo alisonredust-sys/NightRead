@@ -352,6 +352,24 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void vibrate(final int ms, final int amp) {
+            try {
+                android.os.Vibrator v =
+                        (android.os.Vibrator) getSystemService(android.content.Context.VIBRATOR_SERVICE);
+                if (v == null || !v.hasVibrator()) {
+                    return;
+                }
+                int a = Math.max(1, Math.min(255, amp));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(android.os.VibrationEffect.createOneShot(ms, a));
+                } else {
+                    v.vibrate(ms);
+                }
+            } catch (Exception e) {
+            }
+        }
+
+        @JavascriptInterface
         public int insetTop() {
             return insetTop;
         }
