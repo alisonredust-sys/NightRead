@@ -230,7 +230,7 @@ public class MainActivity extends Activity {
                         java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
                         c.setRequestMethod("POST");
                         c.setConnectTimeout(20000);
-                        c.setReadTimeout(120000);
+                        c.setReadTimeout(300000);
                         c.setDoOutput(true);
                         c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                         if (key != null && !key.isEmpty()) {
@@ -250,6 +250,8 @@ public class MainActivity extends Activity {
                         }
                         out = bo.toString("UTF-8");
                         c.disconnect();
+                    } catch (java.net.SocketTimeoutException te) {
+                        code = -2;
                     } catch (Exception e) {
                         code = -1;
                     }

@@ -1,7 +1,7 @@
 {
-  "versionCode": 21,
-  "versionName": "0.18",
+  "versionCode": 22,
+  "versionName": "0.19",
   "apk": "https://github.com/alisonredust-sys/NightRead/releases/latest",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "同人生成改为读取全部章节与设定集"
+  "notes": "加长生成超时到5分钟；区分超时与断网；切回前台不再卡住"
 }

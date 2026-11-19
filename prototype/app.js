@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 21;
-const APP_VER_NAME = '0.18';
+const APP_VER = 22;
+const APP_VER_NAME = '0.19';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -333,6 +333,7 @@ function generate(sid, key, kind) {
   st.errMsg = '';
   if (!S.api.key) { st.err = 'nokey'; render(); return; }
   st.loading = true;
+  st.t0 = Date.now();
   render();
   if (!s.gen) s.gen = {};
   const styleIdx = s.gen._style || 0;
@@ -343,6 +344,7 @@ function generate(sid, key, kind) {
   apiPost('/chat/completions', payload, function (code, body) {
     st.loading = false;
     if (code === -2) { st.err = 'nokey'; render(); return; }
+    if (code === -2) { st.err = 'timeout'; render(); return; }
     if (code === -1) { st.err = 'net'; render(); return; }
     if (code !== 200) {
       st.err = (code === 401 ? 'auth' : (code === 402 ? 'nobalance' : 'HTTP ' + code));
@@ -669,7 +671,7 @@ function longBlock(s, key) {
 }
 
 function genError(st, key) {
-  const map = { nokey: '未连接模型', net: '网络不通', auth: 'Key 无效', nobalance: '余额不足', parse: '模型返回看不懂', empty: '没生成出内容' };
+  const map = { nokey: '未连接模型', net: '网络中断', timeout: '生成超时', interrupted: '上次生成被中断', auth: 'Key 无效', nobalance: '余额不足', parse: '模型返回看不懂', empty: '没生成出内容' };
   const msg = (map[st.err] || st.err) + (st.errMsg ? '：' + st.errMsg : '');
   const isKey = st.err === 'nokey';
   const wasCut = st.errCode === 'length';
@@ -1752,7 +1754,25 @@ stage.addEventListener('touchend', (e) => {
 
 /* ================= 启动 ================= */
 window.__resume = function () {
-  try { render(); } catch (e) {}
+  try {
+    S.series.forEach(function (s2) {
+      if (!s2.gen) return;
+      Object.keys(s2.gen).forEach(function (k) {
+        if (k === '_style') return;
+        const g = s2.gen[k];
+        if (!g || !g.streams) return;
+        Object.keys(g.streams).forEach(function (a) {
+          const st = g.streams[a];
+          if (st.loading && st.t0 && Date.now() - st.t0 > 330000) {
+            st.loading = false;
+            st.err = 'timeout';
+          }
+        });
+      });
+    });
+    save();
+    render();
+  } catch (e) {}
 };
 
 window.__setInset = function (t, b) {
@@ -1777,6 +1797,19 @@ window.__dbg.S = S;
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) S.theme = 'dark';
     }
   }
+  S.series.forEach(function (s2) {
+    if (!s2.gen) return;
+    Object.keys(s2.gen).forEach(function (k) {
+      if (k === '_style') return;
+      const g = s2.gen[k];
+      if (!g || !g.streams) return;
+      Object.keys(g.streams).forEach(function (a) {
+        const st = g.streams[a];
+        if (st && st.loading) { st.loading = false; st.err = 'interrupted'; }
+      });
+    });
+  });
+
   if (S.bg.album === 'default') S.bg.idx = rnd(0, DEFAULT_BG - 1);
   try {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
