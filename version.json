@@ -1,7 +1,7 @@
 {
-  "versionCode": 24,
-  "versionName": "0.21",
+  "versionCode": 25,
+  "versionName": "0.22",
   "apk": "https://github.com/alisonredust-sys/NightRead/releases/latest",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "同人生成时显示'正在生成'与占位页，不再无反馈"
+  "notes": "生成中不再禁用上一页，可回看已生成内容"
 }
