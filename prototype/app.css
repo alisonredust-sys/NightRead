@@ -929,3 +929,4 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .pg{background:none;border:0;color:var(--ink-2);font:14px inherit;cursor:pointer;padding:6px 10px;border-radius:8px}
 .pg:active{background:var(--surface-2)}
 .srow.on{color:var(--accent);font-weight:600}
+.pg.busy{color:var(--muted);font-size:13px}

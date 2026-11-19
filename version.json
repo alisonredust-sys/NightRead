@@ -1,7 +1,7 @@
 {
-  "versionCode": 23,
-  "versionName": "0.20",
+  "versionCode": 24,
+  "versionName": "0.21",
   "apk": "https://github.com/alisonredust-sys/NightRead/releases/latest",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "生成期间保持唤醒；断线自动重试一次；按错误类型给提示"
+  "notes": "同人生成时显示'正在生成'与占位页，不再无反馈"
 }

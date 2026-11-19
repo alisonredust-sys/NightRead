@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 23;
-const APP_VER_NAME = '0.20';
+const APP_VER = 24;
+const APP_VER_NAME = '0.21';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -403,11 +403,14 @@ function avatarOf(name, hue) {
   const ch = (name || '读')[0];
   return `<div class="avatar" style="background:hsl(${hue} 42% 44%)">${esc(ch)}</div>`;
 }
-function pager(page, total, key) {
+function pager(page, total, key, loading) {
+  const mid = loading
+    ? '<span class="pg busy">正在生成…</span>'
+    : `<button class="pg" data-act="pagesel" data-key="${key || ''}">第 ${page + 1}${total ? ' / ' + total : ''} 页</button>`;
   return `<div class="pager">
-    <button data-act="prev" ${page <= 0 ? 'disabled' : ''}>‹ 上一页</button>
-    <button class="pg" data-act="pagesel" data-key="${key || ''}">第 ${page + 1}${total ? ' / ' + total : ''} 页</button>
-    <button data-act="next">下一页 ›</button>
+    <button data-act="prev" ${page <= 0 || loading ? 'disabled' : ''}>‹ 上一页</button>
+    ${mid}
+    <button data-act="next" ${loading ? 'disabled' : ''}>下一页 ›</button>
   </div>`;
 }
 
@@ -778,6 +781,16 @@ function vDoujin() {
     }
     if (!st.loading) setTimeout(() => generate(s.id, key, 'doujin'), 30);
     return `<div class="screen">${hdr('同人')}<div class="scroll">${skeleton(1)}</div>${pager(0, 0, key)}</div>`;
+  }
+  if (st.loading) {
+    return `<div class="screen">
+      ${hdr('同人')}
+      <div class="scroll">
+        <div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false)}</div>
+        ${skeleton(1)}
+      </div>
+      ${pager(st.page, st.batches.length, key, true)}
+    </div>`;
   }
   const d = (st.batches[st.page] || [])[0];
   return `<div class="screen">
