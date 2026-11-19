@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 26;
-const APP_VER_NAME = '0.23';
+const APP_VER = 27;
+const APP_VER_NAME = '0.24';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -506,24 +506,49 @@ function pickHeader(title, kind, count) {
     '</div>';
 }
 
+function catList(s) {
+  const seen = [];
+  (s.works || []).forEach(function (w) {
+    const c = w.cat || '正文';
+    if (seen.indexOf(c) < 0) seen.push(c);
+  });
+  const order = (s.catOrder || []).filter(function (c) { return seen.indexOf(c) > -1; });
+  seen.forEach(function (c) { if (order.indexOf(c) < 0) order.push(c); });
+  return order;
+}
+
 function vWorks() {
   const s = seriesById(cur().params.sid);
   const pick = nav.pick && nav.pick.view === 'works' ? nav.pick : null;
   const on = pick ? pick.ids : {};
-  const rows = s.works.map((w) => {
+  const cats = catList(s);
+
+  const rowHTML = function (w) {
     const sel = !!on[w.id];
     if (pick) {
-      return '<div class="entry pickable' + (sel ? ' sel' : '') + '" style="margin:0 18px 10px" data-act="pickrow" data-id="' + w.id + '">' +
+      return '<div class="entry pickable' + (sel ? ' sel' : '') + '" style="margin:0 14px 8px" data-act="pickrow" data-id="' + w.id + '">' +
         '<div class="pcheck' + (sel ? ' on' : '') + '">' + (sel ? '✓' : '') + '</div>' +
-        '<div class="txt"><div class="t">' + esc(w.title) + '</div><div class="d">' + esc(w.cat || '正文') + ' · ' + (w.text || '').length + ' 字</div></div>' +
+        '<div class="txt"><div class="t">' + esc(w.title) + '</div><div class="d">' + (w.text || '').length + ' 字</div></div>' +
         '</div>';
     }
-    return '<div class="entry" style="margin:0 18px 10px" data-act="openwork" data-wid="' + w.id + '" data-longpress="work">' +
-      '<div class="ico" style="background:var(--surface-2);color:var(--ink-2)">' + esc(w.cat ? w.cat[0] : '文') + '</div>' +
-      '<div class="txt"><div class="t">' + esc(w.title) + '</div><div class="d">' + esc(w.cat || '正文') + ' · ' + (w.text || '').length + ' 字</div></div>' +
+    return '<div class="entry" style="margin:0 14px 8px" data-act="openwork" data-wid="' + w.id + '" data-longpress="work">' +
+      '<div class="ico" style="background:var(--surface-2);color:var(--ink-2)">' + esc((w.cat || '文')[0]) + '</div>' +
+      '<div class="txt"><div class="t">' + esc(w.title) + '</div><div class="d">' + (w.text || '').length + ' 字</div></div>' +
       '<div class="arrow">›</div>' +
       '</div>';
+  };
+
+  const groups = cats.map(function (c, ci) {
+    const list = s.works.filter(function (w) { return (w.cat || '正文') === c; });
+    const head = pick ? '' :
+      '<div class="cat-h"><span class="cat-n">' + esc(c) + '</span><span class="cat-c">' + list.length + ' 篇</span>' +
+      '<span class="cat-mv">' +
+      '<button data-act="cup" data-cat="' + esc(c) + '" ' + (ci === 0 ? 'disabled' : '') + '>↑</button>' +
+      '<button data-act="cdown" data-cat="' + esc(c) + '" ' + (ci === cats.length - 1 ? 'disabled' : '') + '>↓</button>' +
+      '</span></div>';
+    return '<div class="cat-grp">' + head + list.map(rowHTML).join('') + '</div>';
   }).join('');
+
   const head = pick
     ? pickHeader('正文', 'works', Object.keys(pick.ids).length)
     : hdr('正文', { act: '删除', actAct: 'pickstart', actKind: 'works' });
@@ -531,7 +556,7 @@ function vWorks() {
   return `<div class="screen">
     ${head}
     <div class="scroll" style="padding-top:6px">
-      ${s.works.length ? rows : emptyBox('还没有正文', '导入一篇 txt，或直接粘贴', '导入作品', 'newwork')}
+      ${s.works.length ? groups : emptyBox('还没有正文', '导入一篇 txt，或直接粘贴', '导入作品', 'newwork')}
     </div>
     ${add}
   </div>`;
@@ -1437,6 +1462,35 @@ document.addEventListener('click', (e) => {
     return;
   }
 
+  if (act === 'cup' || act === 'cdown') {
+    const ss = seriesById(c.params.sid);
+    const cats = catList(ss);
+    const i = cats.indexOf(el.dataset.cat);
+    const j = act === 'cup' ? i - 1 : i + 1;
+    if (i > -1 && j >= 0 && j < cats.length) {
+      const t = cats[i]; cats[i] = cats[j]; cats[j] = t;
+      ss.catOrder = cats; save(); render();
+    }
+    return;
+  }
+  if (act === 'wmove') {
+    const ss = seriesById(c.params.sid);
+    const wid = el.dataset.wid;
+    const dir = parseInt(el.dataset.dir, 10);
+    const w = workById(ss, wid);
+    if (!w) return;
+    const cat = w.cat || '正文';
+    const idxs = [];
+    ss.works.forEach(function (x, i) { if ((x.cat || '正文') === cat) idxs.push(i); });
+    const pos = idxs.indexOf(ss.works.indexOf(w));
+    const target = pos + dir;
+    if (target < 0 || target >= idxs.length) { toast('已经到头了'); return; }
+    const a = ss.works.indexOf(w);
+    const b = idxs[target];
+    const tmp = ss.works[a]; ss.works[a] = ss.works[b]; ss.works[b] = tmp;
+    save(); closeSheet(); render();
+    return;
+  }
   if (act === 'checkupdate') { checkUpdate(); return; }
   if (act === 'openurl') { const u = el.dataset.url; if (u && window.Android && window.Android.openUrl) Android.openUrl(u); else if (u) window.open(u); return; }
   if (act === 'pickstart') {
@@ -1752,6 +1806,8 @@ function longPress(el) {
   if (kind === 'work') {
     const c = cur();
     openSheet(`<div class="sh-title">这篇正文</div>
+      <div class="srow" data-act="wmove" data-dir="-1" data-wid="${el.dataset.wid}">在分类内上移</div>
+      <div class="srow" data-act="wmove" data-dir="1" data-wid="${el.dataset.wid}">在分类内下移</div>
       <div class="srow danger" data-act="docdelwork" data-sid="${c.params.sid}" data-wid="${el.dataset.wid}">删除</div>`);
   }
   if (kind === 'codex') {

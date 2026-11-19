@@ -1,7 +1,7 @@
 {
-  "versionCode": 26,
-  "versionName": "0.23",
+  "versionCode": 27,
+  "versionName": "0.24",
   "apk": "https://github.com/alisonredust-sys/NightRead/releases/latest",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "下一页仅在最后一页触发生成；删空一页后面页递补，单页删空显示重新生成"
+  "notes": "正文按分类分组，分类内和分类间可手动排序"
 }

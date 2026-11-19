@@ -930,3 +930,13 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .pg:active{background:var(--surface-2)}
 .srow.on{color:var(--accent);font-weight:600}
 .pg.busy{color:var(--muted);font-size:13px}
+
+/* 正文分类 */
+.cat-grp{margin-bottom:14px}
+.cat-h{display:flex;align-items:center;gap:8px;padding:6px 16px 8px}
+.cat-n{font:600 13px inherit;color:var(--ink)}
+.cat-c{font-size:11px;color:var(--muted)}
+.cat-mv{margin-left:auto;display:flex;gap:4px}
+.cat-mv button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink-2);font-size:13px;cursor:pointer}
+.cat-mv button:disabled{opacity:.3}
+.cat-mv button:active{background:var(--surface-2)}
