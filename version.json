@@ -1,7 +1,7 @@
 {
-  "versionCode": 31,
-  "versionName": "0.28",
+  "versionCode": 32,
+  "versionName": "0.29",
   "apk": "https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/dist/NightRead.apk",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "同人搜索栏对齐修复：去掉双重内边距，搜索移入框内右侧，历史加边框"
+  "notes": "修复长按同人不弹菜单（undefined 变量）"
 }

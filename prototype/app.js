@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 31;
-const APP_VER_NAME = '0.28';
+const APP_VER = 32;
+const APP_VER_NAME = '0.29';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -1984,7 +1984,7 @@ function longPress(el) {
       <div class="srow danger" data-act="delcomment" data-key="${el.dataset.key}" data-cid="${el.dataset.cid}">删除这一篇</div>`);
   }
   if (kind === 'dj') {
-    const ss = seriesById(c.params.sid);
+    const ss = seriesById(cur().params.sid);
     const d = findDoujin(ss, el.dataset.cid);
     const faved = d && favOf(ss, d);
     openSheet(`<div class="sh-title">这篇同人</div>
