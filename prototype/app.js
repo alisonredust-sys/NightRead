@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 34;
-const APP_VER_NAME = '0.31';
+const APP_VER = 35;
+const APP_VER_NAME = '0.32';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -113,7 +113,7 @@ function TUNE() {
 
 const THREE = String.fromCharCode(34, 34, 34);
 
-function buildUser(kind, src, angle) {
+function buildUser(kind, src, angle, pre) {
   const t = TUNE();
   let text = String(src || '');
   if (t.limitCtx) text = text.slice(0, t.ctxChars || 6000);
@@ -124,11 +124,11 @@ function buildUser(kind, src, angle) {
       ? '生成一批' + n + '条关于' + angle + '的短评。\n\n'
       : '生成' + n + '篇关于' + angle + '的' + (kind === 'long' ? '长评' : '同人') + '。\n\n';
   }
-  u += '正文：\n' + THREE + '\n' + text + '\n' + THREE + '\n';
+  u += (pre || '') + '正文：\n' + THREE + '\n' + text + '\n' + THREE + '\n';
   return u;
 }
 
-function buildPayload(kind, src, angle, styleIdx, n) {
+function buildPayload(kind, src, angle, styleIdx, n, pre) {
   const t = TUNE();
   return {
     model: S.api.model || 'deepseek-flash',
@@ -140,7 +140,7 @@ function buildPayload(kind, src, angle, styleIdx, n) {
     top_p: t.enabled ? t.topP : 1,
     messages: [
       { role: 'system', content: buildSystem(kind, styleIdx, n) },
-      { role: 'user', content: buildUser(kind, src, angle) },
+      { role: 'user', content: buildUser(kind, src, angle, pre) },
     ],
   };
 }
@@ -323,6 +323,33 @@ function sourceTextFor(key, sid) {
   return w ? w.text : '';
 }
 
+function clipText(t, n) {
+  t = String(t || '');
+  return t.length > n ? t.slice(0, n) + '……' : t;
+}
+
+function priorTextFor(key, sid) {
+  if (key.indexOf('work:') !== 0) return '';
+  const s = seriesById(sid);
+  if (!s) return '';
+  const parts = key.split(':');
+  const wid = parts[1];
+  const idx = (s.works || []).findIndex(function (w) { return w.id === wid; });
+  if (idx <= 0) return '';
+  const before = s.works.slice(0, idx);
+  let budget = 6000;
+  const blocks = [];
+  for (let i = 0; i < before.length && budget > 0; i++) {
+    const w = before[i];
+    const t = clipText(w.text || '', Math.min(2000, budget));
+    budget -= t.length;
+    blocks.push('《' + (w.title || '前文') + '》\n' + t);
+  }
+  if (!blocks.length) return '';
+  return '【此前篇目（读者已经读过这些）】\n' + blocks.join('\n\n') +
+    '\n\n读者已经读过上面的篇目。评论不能把已经发生的事当成没发生，也不能提到还没写到的内容。\n\n';
+}
+
 function generate(sid, key, kind, isRetry) {
   const s = seriesById(sid);
   if (!s) return;
@@ -341,7 +368,7 @@ function generate(sid, key, kind, isRetry) {
   s.gen._style = (styleIdx + 1) % 5;
   const tt = TUNE();
   const n = kind === 'short' ? 10 : (kind === 'long' ? 2 : 1);
-  const payload = buildPayload(kind, sourceTextFor(key, sid), angle, styleIdx, n);
+  const payload = buildPayload(kind, sourceTextFor(key, sid), angle, styleIdx, n, priorTextFor(key, sid));
   apiPost('/chat/completions', payload, function (code, body) {
     st.loading = false;
     if (code === -2) { st.err = 'nokey'; render(); return; }
@@ -534,7 +561,7 @@ function vWorks() {
     }
     return '<div class="entry" style="margin:0 14px 8px" data-act="openwork" data-wid="' + w.id + '" data-longpress="work">' +
       '<div class="ico" style="background:var(--surface-2);color:var(--ink-2)">' + esc((w.cat || '文')[0]) + '</div>' +
-      '<div class="txt"><div class="t">' + esc(w.title) + '</div><div class="d">' + (w.text || '').length + ' 字</div></div>' +
+      '<div class="txt"><div class="t"><span class="wnum">' + (s.works.indexOf(w) + 1) + '</span>' + esc(w.title) + '</div><div class="d">' + (w.text || '').length + ' 字</div></div>' +
       '<div class="arrow">›</div>' +
       '</div>';
   };
@@ -960,11 +987,12 @@ function vSettings() {
           <button class="btn-line primary" data-act="checkupdate">检查更新</button>
         </div>
 
-        <div class="sect-title">数据</div>
+        <div class="ver">长夜 v${APP_VER_NAME}</div>
+        <div style="height:26px"></div>
         <div class="grp">
           <div class="row" data-act="resetall"><span class="l" style="color:#c0392b">清空全部数据</span></div>
         </div>
-        <div class="ver">长夜 v${APP_VER_NAME}</div>
+        <div style="height:60px"></div>
       </div>
     </div>
   </div>`;
@@ -1638,6 +1666,17 @@ document.addEventListener('click', (e) => {
     }
     return;
   }
+  if (act === 'wmoveall') {
+    const ss = seriesById(c.params.sid);
+    const wid = el.dataset.wid;
+    const dir = parseInt(el.dataset.dir, 10);
+    const i = ss.works.findIndex(function (w) { return w.id === wid; });
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ss.works.length) { toast('已经到头了'); return; }
+    const tmp = ss.works[i]; ss.works[i] = ss.works[j]; ss.works[j] = tmp;
+    save(); closeSheet(); render();
+    return;
+  }
   if (act === 'wmove') {
     const ss = seriesById(c.params.sid);
     const wid = el.dataset.wid;
@@ -2026,6 +2065,8 @@ function longPress(el) {
     openSheet(`<div class="sh-title">这篇正文</div>
       <div class="srow" data-act="wmove" data-dir="-1" data-wid="${el.dataset.wid}">在分类内上移</div>
       <div class="srow" data-act="wmove" data-dir="1" data-wid="${el.dataset.wid}">在分类内下移</div>
+      <div class="srow" data-act="wmoveall" data-dir="-1" data-wid="${el.dataset.wid}">整体提前一位</div>
+      <div class="srow" data-act="wmoveall" data-dir="1" data-wid="${el.dataset.wid}">整体推后一位</div>
       <div class="srow danger" data-act="docdelwork" data-sid="${c.params.sid}" data-wid="${el.dataset.wid}">删除</div>`);
   }
   if (kind === 'codex') {

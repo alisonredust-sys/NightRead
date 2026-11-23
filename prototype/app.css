@@ -982,3 +982,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .h-q{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.55;word-break:break-word}
 .h-n{margin-top:2px}
 .h-del{align-self:flex-start;margin-top:4px}
+
+/* 正文顺序号 */
+.wnum{display:inline-block;min-width:20px;margin-right:8px;font-size:12px;color:var(--muted);font-weight:600}
