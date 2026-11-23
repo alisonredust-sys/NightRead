@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 33;
-const APP_VER_NAME = '0.30';
+const APP_VER = 34;
+const APP_VER_NAME = '0.31';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -639,10 +639,7 @@ function histRows(angle) {
 
 function applySearch(v) {
   let q = v;
-  if (q == null) {
-    const el = document.getElementById('q');
-    q = el ? el.value : '';
-  }
+  if (q == null) q = cur().params.angle || '';
   q = String(q || '').trim();
   const c = cur();
   c.params.angle = q;
@@ -656,7 +653,7 @@ function searchBar(angle, presets, showChips, opts) {
       ${o.fav ? '<button class="side-btn" data-act="openfav" title="收藏">★</button>' : ''}
       <div class="searchbar">
         <span class="mag">⌕</span>
-        <input id="q" placeholder="输入关键词，回车生成" value="${esc(angle || '')}" autocomplete="off">
+        <div class="qbox${angle ? '' : ' ph'}" data-act="qedit">${angle ? esc(angle) : '点这里输入关键词'}</div>
         ${angle ? '<button class="clear" data-act="clearq">×</button>' : ''}
         <button class="qhist" data-act="togglehist">历史</button>
         <button class="qgo" data-act="search">搜索</button>
@@ -855,6 +852,20 @@ function vDjRead() {
     '<div class="api-actions"><button class="btn-line" data-act="unfav" data-fid="' + d.id + '">取消收藏</button></div>' +
     '<div style="height:30px"></div>' +
     '</div></div>';
+}
+
+function vQEdit() {
+  const c = cur();
+  const v = c.params.q || '';
+  return '<div class="screen">' +
+    '<div class="hdr"><button class="back" data-act="back"><span class="arw">‹</span>取消</button>' +
+    '<div class="title">关键词</div>' +
+    '<button class="act primary" data-act="qsave">保存</button></div>' +
+    '<div class="scroll ed-scroll">' +
+    '<div class="ed-f"><label>这一批围绕什么写</label>' +
+    '<textarea id="qta" class="q-ta" placeholder="可以写很长，例如：角色形象——外形、穿着、体态、给人的第一印象，不写性格评价">' + esc(v) + '</textarea></div>' +
+    '<div class="pad dim small" style="line-height:1.8">保存后回到列表，点「搜索」才会生成新的一批。历史记录里的条目可以直接点开来看全文。</div>' +
+    '<div class="ed-gap"></div></div></div>';
 }
 
 function vDoujin() {
@@ -1270,7 +1281,7 @@ const PRESETS = {
 /* ================= 渲染 ================= */
 const VIEWS = {
   home: vHome, series: vSeries, works: vWorks, work: vWork, codex: vCodex,
-  sreview: vSReview, doujin: vDoujin, djfav: vDjFav, djread: vDjRead, settings: vSettings, bgmgr: vBgMgr, real: vReal, editor: vEditor, tune: vTune,
+  sreview: vSReview, doujin: vDoujin, djfav: vDjFav, djread: vDjRead, qedit: vQEdit, settings: vSettings, bgmgr: vBgMgr, real: vReal, editor: vEditor, tune: vTune,
 };
 
 function resolvedTheme() {
@@ -1511,6 +1522,23 @@ document.addEventListener('click', (e) => {
   if (act === 'newcodex') { newCodex(); return; }
 
   if (act === 'chip') { applySearch(el.dataset.w); return; }
+  if (act === 'qedit') {
+    haptic();
+    go('qedit', { sid: c.params.sid, q: c.params.angle || '' });
+    return;
+  }
+  if (act === 'qsave') {
+    const ta = document.getElementById('qta');
+    const val = (ta ? ta.value : '').trim();
+    const below = nav.stack[nav.stack.length - 2];
+    if (below && below.params) {
+      below.params.angle = val;
+      scrollMemo[curKey()] = 0;
+    }
+    nav.stack.pop();
+    render();
+    return;
+  }
   if (act === 'openfav') { haptic(); go('djfav', { sid: c.params.sid }); return; }
   if (act === 'openfavitem') { haptic(); go('djread', { sid: c.params.sid, fid: el.dataset.fid }); return; }
   if (act === 'favdj') {

@@ -968,3 +968,17 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .searchbar .qgo{flex:0 0 auto}
 .searchbar .qhist{flex:0 0 auto}
 .searchline{min-width:0}
+
+/* 搜索框：可展开的触发器 */
+.qbox{flex:1;min-width:0;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;cursor:pointer}
+.qbox.ph{color:var(--muted)}
+/* 大文本框 */
+.q-ta{width:100%;min-height:38vh;border:1.5px solid var(--line);border-radius:14px;background:var(--bg);color:var(--ink);padding:14px;font:15px/1.75 inherit;resize:vertical;outline:none}
+.q-ta:focus{border-color:var(--accent)}
+/* 历史条目改为换行显示全文 */
+.hist{max-height:240px}
+.hist-row{align-items:flex-start}
+.h-main{align-items:flex-start;padding:10px}
+.h-q{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.55;word-break:break-word}
+.h-n{margin-top:2px}
+.h-del{align-self:flex-start;margin-top:4px}

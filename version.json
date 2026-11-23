@@ -1,7 +1,7 @@
 {
-  "versionCode": 33,
-  "versionName": "0.30",
+  "versionCode": 34,
+  "versionName": "0.31",
   "apk": "https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/dist/NightRead.apk",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "修复滑动阅读时误触长按菜单"
+  "notes": "搜索关键词改用大文本框编辑；历史记录换行显示全文"
 }

@@ -24,7 +24,7 @@ Write-Host "[4/7] aapt2 link"
     --manifest (Join-Path $ROOT 'AndroidManifest.xml') `
     -R "$OUT\res.zip" --java "$ROOT\gen" -A (Join-Path $ROOT 'assets') `
     --min-sdk-version 24 --target-sdk-version 34 `
-    --version-code 33 --version-name 0.30 --auto-add-overlay
+    --version-code 34 --version-name 0.31 --auto-add-overlay
 if ($LASTEXITCODE -ne 0) { throw 'aapt2 link failed' }
 
 Write-Host "[5/7] javac + d8"
