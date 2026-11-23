@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 32;
-const APP_VER_NAME = '0.29';
+const APP_VER = 33;
+const APP_VER_NAME = '0.30';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -1937,19 +1937,53 @@ function pickImage() {
 /* 滑动 / 长按 */
 let px = 0, py = 0, moved = false, pressTimer = null, pressEl = null;
 
+function cancelPress() {
+  clearTimeout(pressTimer);
+  pressTimer = null;
+  pressEl = null;
+}
+
+function movedTooFar(e) {
+  if (!pressEl) return true;
+  const dx = Math.abs(e.clientX - px);
+  const dy = Math.abs(e.clientY - py);
+  return dx > 10 || dy > 10;
+}
+
 stage.addEventListener('pointerdown', (e) => {
   px = e.clientX; py = e.clientY; moved = false;
   const el = e.target.closest('[data-longpress]');
-  if (!el) { pressEl = null; return; }
+  if (!el) { cancelPress(); return; }
   pressEl = el;
   clearTimeout(pressTimer);
-  pressTimer = setTimeout(() => { moved = true; longPress(el); }, 520);
+  pressTimer = setTimeout(() => {
+    // 手指没怎么动才认长按
+    if (!pressEl) return;
+    moved = true;
+    longPress(el);
+    pressEl = null;
+  }, 550);
 });
+
 stage.addEventListener('pointermove', (e) => {
   if (!pressEl) return;
-  if (Math.abs(e.clientX - px) > 8 || Math.abs(e.clientY - py) > 8) { clearTimeout(pressTimer); pressEl = null; }
+  if (movedTooFar(e)) cancelPress();
 });
-stage.addEventListener('pointerup', (e) => { clearTimeout(pressTimer); });
+
+stage.addEventListener('pointercancel', cancelPress);
+stage.addEventListener('pointerup', cancelPress);
+stage.addEventListener('pointerleave', cancelPress);
+
+// 只要页面在滚动，就不可能是长按
+document.addEventListener('scroll', cancelPress, true);
+stage.addEventListener('touchmove', (e) => {
+  if (!pressEl) return;
+  const t = e.touches && e.touches[0];
+  if (!t) return;
+  if (Math.abs(t.clientX - px) > 10 || Math.abs(t.clientY - py) > 10) cancelPress();
+}, { passive: true });
+stage.addEventListener('touchcancel', cancelPress, { passive: true });
+window.addEventListener('blur', cancelPress);
 
 function longPress(el) {
   const kind = el.dataset.longpress;

@@ -1,7 +1,7 @@
 {
-  "versionCode": 32,
-  "versionName": "0.29",
+  "versionCode": 33,
+  "versionName": "0.30",
   "apk": "https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/dist/NightRead.apk",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "修复长按同人不弹菜单（undefined 变量）"
+  "notes": "修复滑动阅读时误触长按菜单"
 }
