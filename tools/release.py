@@ -27,11 +27,21 @@ def main():
         print('找不到 dist/NightRead.apk，先跑 build.ps1')
         return 1
 
+    # 仓库地址 -> raw 安装包地址（App 直接下载这个文件）
+    r = repo.rstrip('/')
+    apk_url = ''
+    if 'github.com/' in r:
+        tail = r.split('github.com/')[-1]
+        parts = [x for x in tail.split('/') if x]
+        if len(parts) >= 2:
+            owner, proj = parts[0], parts[1].replace('.git', '')
+            apk_url = 'https://raw.githubusercontent.com/%s/%s/main/dist/NightRead.apk' % (owner, proj)
+
     meta = {
         'versionCode': code,
         'versionName': name,
-        'apk': repo.rstrip('/') + '/releases/latest',
-        'page': repo.rstrip('/') + '/releases/latest',
+        'apk': apk_url,
+        'page': r + '/releases/latest',
         'notes': notes,
     }
     with io.open(os.path.join(ROOT, 'version.json'), 'w', encoding='utf-8') as f:

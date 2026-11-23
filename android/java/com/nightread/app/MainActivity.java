@@ -162,6 +162,17 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void installApk() {
+        try {
+            android.net.Uri u = android.net.Uri.parse("content://" + ApkProvider.AUTHORITY + "/" + ApkProvider.NAME);
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(u, "application/vnd.android.package-archive");
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Exception e) {
+        }
+    }
+
     private void holdWake(boolean on) {
         try {
             if (wake == null) {
@@ -367,6 +378,65 @@ public class MainActivity extends Activity {
                 }
             } catch (Exception e) {
             }
+        }
+
+        @JavascriptInterface
+        public void downloadApk(final String url, final String cb) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    int status = -1;
+                    String msg = "";
+                    try {
+                        java.io.File dir = getExternalFilesDir(null);
+                        if (dir == null) {
+                            dir = getFilesDir();
+                        }
+                        java.io.File target = new java.io.File(dir, ApkProvider.NAME);
+                        if (target.exists()) {
+                            target.delete();
+                        }
+                        java.net.HttpURLConnection c =
+                                (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                        c.setInstanceFollowRedirects(true);
+                        c.setConnectTimeout(20000);
+                        c.setReadTimeout(120000);
+                        int code = c.getResponseCode();
+                        if (code != 200) {
+                            status = -1;
+                            msg = "HTTP " + code;
+                        } else {
+                            java.io.InputStream in = c.getInputStream();
+                            java.io.FileOutputStream out = new java.io.FileOutputStream(target);
+                            byte[] buf = new byte[16384];
+                            int n;
+                            while ((n = in.read(buf)) > 0) {
+                                out.write(buf, 0, n);
+                            }
+                            out.flush();
+                            out.close();
+                            in.close();
+                            status = 1;
+                        }
+                        c.disconnect();
+                    } catch (Exception e) {
+                        status = -1;
+                        msg = e.getClass().getSimpleName();
+                    }
+                    final int st = status;
+                    final String m2 = msg;
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (st == 1) {
+                                installApk();
+                            }
+                            web.evaluateJavascript(
+                                    "window.__apkDone&&window.__apkDone(" + st + ",'" + m2 + "')", null);
+                        }
+                    });
+                }
+            }).start();
         }
 
         @JavascriptInterface

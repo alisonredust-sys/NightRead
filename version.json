@@ -1,7 +1,7 @@
 {
-  "versionCode": 29,
-  "versionName": "0.26",
-  "apk": "https://github.com/alisonredust-sys/NightRead/releases/latest",
+  "versionCode": 30,
+  "versionName": "0.27",
+  "apk": "https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/dist/NightRead.apk",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "同人：搜索栏重排、历史限高可滚动、新增收藏"
+  "notes": "更新地址内置；检查更新后应用内直接下载并调起安装"
 }

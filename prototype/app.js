@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 29;
-const APP_VER_NAME = '0.26';
+const APP_VER = 30;
+const APP_VER_NAME = '0.27';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -944,10 +944,9 @@ function vSettings() {
         <div class="sect-title">关于</div>
         <div class="grp">
           <div class="row" style="cursor:default"><span class="l">版本</span><span class="r">v${APP_VER_NAME}（${APP_VER}）</span></div>
-          <div class="field"><label>更新地址（version.json）</label><input id="upd-url" class="upd-in" value="${esc(S.updateUrl || DEFAULT_UPDATE_URL)}" placeholder="https://raw.githubusercontent.com/…/version.json"></div>
         </div>
         <div class="api-actions">
-          <button class="btn-line" data-act="checkupdate">检查更新</button>
+          <button class="btn-line primary" data-act="checkupdate">检查更新</button>
         </div>
 
         <div class="sect-title">数据</div>
@@ -1122,11 +1121,7 @@ function apiGetUrl(url, cb) {
 }
 
 function checkUpdate() {
-  const el = document.getElementById('upd-url');
-  const url = ((el && el.value) || S.updateUrl || DEFAULT_UPDATE_URL).trim();
-  if (!url || url.indexOf('USER/REPO') > -1) { toast('先填更新地址'); return; }
-  if (!S.updateUrl) S.updateUrl = url;
-  S.updateUrl = url; save();
+  const url = DEFAULT_UPDATE_URL;
   toast('检查中…');
   apiGetUrl(url, function (code, body) {
     if (code !== 200) { openSheet('<div class="sh-title">检查失败</div><div class="srow" style="cursor:default">HTTP ' + code + '</div>'); return; }
@@ -1142,7 +1137,8 @@ function checkUpdate() {
     }
     openSheet('<div class="sh-title">有新版本 v' + esc(j.versionName || '') + '</div>' +
       '<div class="srow" style="cursor:default;line-height:1.7">' + esc(j.notes || '') + '</div>' +
-      '<div class="srow" data-act="openurl" data-url="' + esc(j.apk || j.page || '') + '">去下载</div>');
+      '<div class="srow" data-act="doupdate" data-url="' + esc(j.apk || '') + '">立即更新</div>' +
+      '<div class="srow" style="cursor:default;font-size:12px;color:var(--muted);line-height:1.6">下载完成后会弹出系统安装界面，按提示确认即可。</div>');
   });
 }
 
@@ -1633,6 +1629,18 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (act === 'checkupdate') { checkUpdate(); return; }
+  if (act === 'doupdate') {
+    const u = el.dataset.url;
+    if (!u) { toast('没有下载地址'); return; }
+    closeSheet();
+    if (window.Android && Android.downloadApk) {
+      Android.downloadApk(u, '');
+      toast('开始下载…');
+    } else if (window.open) {
+      window.open(u);
+    }
+    return;
+  }
   if (act === 'openurl') { const u = el.dataset.url; if (u && window.Android && window.Android.openUrl) Android.openUrl(u); else if (u) window.open(u); return; }
   if (act === 'pickstart') {
     const kind = (el && el.dataset && el.dataset.kind) || (c.view === 'codex' ? 'codex' : 'works');
@@ -2000,6 +2008,13 @@ stage.addEventListener('touchend', (e) => {
 }, { passive: true });
 
 /* ================= 启动 ================= */
+window.__apkDone = function (status, msg) {
+  try {
+    if (status === 1) toast('下载完成，正在打开安装界面');
+    else toast('下载失败' + (msg ? '：' + msg : ''));
+  } catch (e) {}
+};
+
 window.__resume = function () {
   try {
     S.series.forEach(function (s2) {

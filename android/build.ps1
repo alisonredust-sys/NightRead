@@ -24,12 +24,13 @@ Write-Host "[4/7] aapt2 link"
     --manifest (Join-Path $ROOT 'AndroidManifest.xml') `
     -R "$OUT\res.zip" --java "$ROOT\gen" -A (Join-Path $ROOT 'assets') `
     --min-sdk-version 24 --target-sdk-version 34 `
-    --version-code 29 --version-name 0.26 --auto-add-overlay
+    --version-code 30 --version-name 0.27 --auto-add-overlay
 if ($LASTEXITCODE -ne 0) { throw 'aapt2 link failed' }
 
 Write-Host "[5/7] javac + d8"
+$JSRCS = @(Get-ChildItem "$ROOT\java" -Recurse -Filter *.java | ForEach-Object { $_.FullName })
 & javac -source 8 -target 8 -nowarn -classpath $AJ -d "$ROOT\classes" `
-    "$ROOT\gen\com\nightread\app\R.java" "$ROOT\java\com\nightread\app\MainActivity.java"
+    "$ROOT\gen\com\nightread\app\R.java" @JSRCS
 if ($LASTEXITCODE -ne 0) { throw 'javac failed' }
 & jar --create --file "$OUT\classes.jar" -C "$ROOT\classes" .
 $ErrorActionPreference = 'Continue'
