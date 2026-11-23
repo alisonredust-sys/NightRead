@@ -944,3 +944,22 @@ input,textarea{-webkit-user-select:text;user-select:text}
 /* 历史按钮 */
 .qhist{height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);background:transparent;color:var(--ink-2);font:13px inherit;cursor:pointer;margin-left:6px;flex:0 0 auto}
 .qhist:active{background:var(--surface-2)}
+
+/* 搜索行：收藏(左) + 胶囊(内含搜索) + 历史(右) */
+.searchline{display:flex;align-items:center;gap:8px}
+.searchline .searchbar{flex:1;min-width:0}
+.side-btn{flex:0 0 42px;width:42px;height:42px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-size:16px;cursor:pointer;line-height:1}
+.side-btn:active{background:var(--surface)}
+.side-txt{flex:0 0 auto;height:42px;padding:0 10px;border-radius:14px;border:1px solid var(--line);background:transparent;color:var(--ink-2);font-size:13px;cursor:pointer}
+.side-txt:active{background:var(--surface-2)}
+.searchbar .qgo{margin-left:2px;height:30px;padding:0 14px;border-radius:15px}
+
+/* 历史列表：限高 + 滚动条 */
+.hist{max-height:196px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.hist::-webkit-scrollbar{width:6px}
+.hist::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.hist::-webkit-scrollbar-track{background:transparent}
+
+/* 胶囊内的历史按钮：弱化，不抢搜索 */
+.searchbar .qhist{border:0;background:transparent;color:var(--muted);font-size:13px;padding:0 6px;height:30px;cursor:pointer;flex:0 0 auto}
+.searchbar .qhist:active{color:var(--ink)}

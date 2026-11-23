@@ -1,7 +1,7 @@
 {
-  "versionCode": 28,
-  "versionName": "0.25",
+  "versionCode": 29,
+  "versionName": "0.26",
   "apk": "https://github.com/alisonredust-sys/NightRead/releases/latest",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "振动反馈可调；搜索历史折叠；滚动位置记忆"
+  "notes": "同人：搜索栏重排、历史限高可滚动、新增收藏"
 }

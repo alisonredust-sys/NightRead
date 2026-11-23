@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 28;
-const APP_VER_NAME = '0.25';
+const APP_VER = 29;
+const APP_VER_NAME = '0.26';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -649,14 +649,18 @@ function applySearch(v) {
   render();
 }
 
-function searchBar(angle, presets, showChips) {
+function searchBar(angle, presets, showChips, opts) {
+  const o = opts || {};
   return `<div class="searchwrap">
-    <div class="searchbar">
-      <span class="mag">⌕</span>
-      <input id="q" placeholder="输入关键词，回车生成" value="${esc(angle || '')}" autocomplete="off">
-      ${angle ? '<button class="clear" data-act="clearq">×</button>' : ''}
-      <button class="qhist" data-act="togglehist">历史</button>
-      <button class="qgo" data-act="search">搜索</button>
+    <div class="searchline">
+      ${o.fav ? '<button class="side-btn" data-act="openfav" title="收藏">★</button>' : ''}
+      <div class="searchbar">
+        <span class="mag">⌕</span>
+        <input id="q" placeholder="输入关键词，回车生成" value="${esc(angle || '')}" autocomplete="off">
+        ${angle ? '<button class="clear" data-act="clearq">×</button>' : ''}
+        <button class="qhist" data-act="togglehist">历史</button>
+        <button class="qgo" data-act="search">搜索</button>
+      </div>
     </div>
     <div class="hist" id="hist" style="${nav.histOpen ? '' : 'display:none'}">${histRows(angle)}</div>
   </div>
@@ -798,6 +802,61 @@ function vSReview() {
   </div>`;
 }
 
+function findDoujin(s, cid) {
+  const g = s.gen && s.gen.doujin;
+  if (!g) return null;
+  let hit = null;
+  Object.keys(g.streams || {}).forEach(function (a) {
+    (g.streams[a].batches || []).forEach(function (b) {
+      (b || []).forEach(function (d) { if (d.id === cid) hit = d; });
+    });
+  });
+  return hit;
+}
+
+function favOf(s, d) {
+  if (!d) return null;
+  const list = s.djFav || [];
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].id === d.id) return list[i];
+  }
+  return null;
+}
+
+function vDjFav() {
+  const s = seriesById(cur().params.sid);
+  const list = (s && s.djFav) || [];
+  const rows = list.map(function (d) {
+    return '<div class="entry" style="margin:0 14px 8px" data-act="openfavitem" data-fid="' + d.id + '">' +
+      '<div class="ico" style="background:var(--surface-2);color:var(--accent)">★</div>' +
+      '<div class="txt"><div class="t">' + esc(d.title) + '</div>' +
+      '<div class="d">' + esc((d.tags || []).join(' · ') || '同人') + '</div></div>' +
+      '<div class="arrow">›</div></div>';
+  }).join('');
+  return '<div class="screen">' + hdr('收藏的同人') +
+    '<div class="scroll" style="padding-top:6px">' +
+    (list.length ? rows : emptyBox('还没有收藏', '长按一篇同人，选「收藏」', '', '')) +
+    '</div></div>';
+}
+
+function vDjRead() {
+  const s = seriesById(cur().params.sid);
+  const fid = cur().params.fid;
+  const d = ((s && s.djFav) || []).filter(function (x) { return x.id === fid; })[0];
+  if (!d) { nav.stack.pop(); return vDjFav(); }
+  return '<div class="screen">' + hdr(d.title) +
+    '<div class="scroll">' +
+    '<div class="dj">' +
+    '<h3>' + esc(d.title) + '</h3>' +
+    '<div class="byline"><span>匿名读者</span><span>·</span><span>' + (d.likes || 0) + ' 人喜欢</span></div>' +
+    '<div class="tags">' + (d.tags || []).map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' +
+    '<div class="text">' + (d.body || []).map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('') + '</div>' +
+    '</div>' +
+    '<div class="api-actions"><button class="btn-line" data-act="unfav" data-fid="' + d.id + '">取消收藏</button></div>' +
+    '<div style="height:30px"></div>' +
+    '</div></div>';
+}
+
 function vDoujin() {
   const s = seriesById(cur().params.sid);
   const key = 'doujin';
@@ -806,7 +865,7 @@ function vDoujin() {
     if (st.err) return `<div class="screen">${hdr('同人')}<div class="scroll">${genError(st, key)}</div>${pager(0, 0, key)}</div>`;
     if (st.suppress) {
       return `<div class="screen">${hdr('同人')}<div class="scroll">` +
-        `<div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false)}</div>` +
+        `<div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false, { fav: true })}</div>` +
         `<div class="empty2"><div class="e1">·</div><div class="e2">这一篇已删除</div>` +
         `<div class="e3">要新的就再生成一篇</div>` +
         `<button class="btn-ghost" data-act="gennow" data-key="${key}">重新生成</button></div></div>` +
@@ -820,7 +879,7 @@ function vDoujin() {
     return `<div class="screen">
       ${hdr('同人')}
       <div class="scroll">
-        <div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false)}</div>
+        <div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false, { fav: true })}</div>
         ${skeleton(1)}
       </div>
       ${pager(st.page, st.batches.length, key, true)}
@@ -830,7 +889,7 @@ function vDoujin() {
   return `<div class="screen">
     ${hdr('同人')}
     <div class="scroll">
-      <div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false)}</div>
+      <div class="pad">${searchBar(cur().params.angle || '', PRESETS.doujin, false, { fav: true })}</div>
       ${d ? `<div class="dj" data-longpress="dj" data-cid="${d.id}" data-key="doujin">
         <h3>${esc(d.title)}</h3>
         <div class="byline"><span>匿名读者</span><span>·</span><span>${d.likes} 人喜欢</span></div>
@@ -1215,7 +1274,7 @@ const PRESETS = {
 /* ================= 渲染 ================= */
 const VIEWS = {
   home: vHome, series: vSeries, works: vWorks, work: vWork, codex: vCodex,
-  sreview: vSReview, doujin: vDoujin, settings: vSettings, bgmgr: vBgMgr, real: vReal, editor: vEditor, tune: vTune,
+  sreview: vSReview, doujin: vDoujin, djfav: vDjFav, djread: vDjRead, settings: vSettings, bgmgr: vBgMgr, real: vReal, editor: vEditor, tune: vTune,
 };
 
 function resolvedTheme() {
@@ -1456,6 +1515,29 @@ document.addEventListener('click', (e) => {
   if (act === 'newcodex') { newCodex(); return; }
 
   if (act === 'chip') { applySearch(el.dataset.w); return; }
+  if (act === 'openfav') { haptic(); go('djfav', { sid: c.params.sid }); return; }
+  if (act === 'openfavitem') { haptic(); go('djread', { sid: c.params.sid, fid: el.dataset.fid }); return; }
+  if (act === 'favdj') {
+    const ss = seriesById(c.params.sid);
+    const d = findDoujin(ss, el.dataset.cid);
+    if (!d) return;
+    ss.djFav = ss.djFav || [];
+    if (!favOf(ss, d)) {
+      ss.djFav.push({ id: d.id, title: d.title, tags: d.tags || [], likes: d.likes || 0, body: d.body || [], at: Date.now() });
+      save();
+      toast('已收藏');
+    }
+    closeSheet(); render(); return;
+  }
+  if (act === 'unfavdj' || act === 'unfav') {
+    const ss = seriesById(c.params.sid);
+    const cid = el.dataset.cid || el.dataset.fid;
+    ss.djFav = (ss.djFav || []).filter(function (x) { return x.id !== cid; });
+    save(); closeSheet();
+    if (act === 'unfav') { nav.stack.pop(); render(); } else { render(); }
+    toast('已取消收藏');
+    return;
+  }
   if (act === 'togglehist') { nav.histOpen = !nav.histOpen; haptic(); render(); return; }
   if (act === 'search') { haptic(); applySearch(el.dataset.w); return; }
   if (act === 'delhist') {
@@ -1894,7 +1976,11 @@ function longPress(el) {
       <div class="srow danger" data-act="delcomment" data-key="${el.dataset.key}" data-cid="${el.dataset.cid}">删除这一篇</div>`);
   }
   if (kind === 'dj') {
+    const ss = seriesById(c.params.sid);
+    const d = findDoujin(ss, el.dataset.cid);
+    const faved = d && favOf(ss, d);
     openSheet(`<div class="sh-title">这篇同人</div>
+      <div class="srow" data-act="${faved ? 'unfavdj' : 'favdj'}" data-cid="${el.dataset.cid}">${faved ? '取消收藏' : '收藏'}</div>
       <div class="srow danger" data-act="deldoujin" data-cid="${el.dataset.cid}">删除</div>`);
   }
 }
