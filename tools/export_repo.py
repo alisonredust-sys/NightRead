@@ -48,6 +48,8 @@ def copy_tree(src, dst):
             copy_tree(sp, dp)
         else:
             ext = os.path.splitext(name)[1].lower()
+            if name.startswith('_'):
+                continue
             if ext in SKIP_EXT or name.endswith('.zip') or name.startswith('deepseek_data'):
                 continue
             shutil.copyfile(sp, dp)
@@ -74,6 +76,8 @@ def main():
     if os.path.isdir(dist_src):
         os.makedirs(dist_dst, exist_ok=True)
         for fn in os.listdir(dist_src):
+            if fn.startswith('_'):
+                continue
             if fn.lower().endswith(DIST_EXT):
                 shutil.copyfile(os.path.join(dist_src, fn), os.path.join(dist_dst, fn))
 

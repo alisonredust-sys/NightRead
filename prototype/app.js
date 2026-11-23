@@ -1557,8 +1557,8 @@ function vCharEdit() {
 
 function charSave() {
   const c = cur();
+  const isDraft = !!(c.params && c.params.draft);
   let obj = curCharDraft();
-  const isNew = !obj;
   if (!obj) obj = newCharObj();
   Array.prototype.forEach.call(document.querySelectorAll('.cf'), function (el) {
     charSet(obj, el.dataset.k, el.value.trim());
@@ -1566,7 +1566,7 @@ function charSave() {
   if (!obj.name) obj.name = '无名';
   obj.at = Date.now();
   S.characters = S.characters || [];
-  if (isNew) S.characters.unshift(obj);
+  if (isDraft || S.characters.indexOf(obj) < 0) S.characters.unshift(obj);
   save();
   toast('已保存');
   nav.stack.pop();
