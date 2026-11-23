@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 35;
-const APP_VER_NAME = '0.32';
+const APP_VER = 36;
+const APP_VER_NAME = '0.33';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -25,6 +25,7 @@ let S = {
   api: { base: 'https://api.deepseek.com', key: '', model: 'deepseek-flash' },
   tune: Object.assign({}, DEFAULT_TUNE),
   prompts: { short: '', long: '', doujin: '' },
+  characters: [],
   updateUrl: '',
   haptic: { on: true, level: 2 },
   series: [],
@@ -368,7 +369,7 @@ function generate(sid, key, kind, isRetry) {
   s.gen._style = (styleIdx + 1) % 5;
   const tt = TUNE();
   const n = kind === 'short' ? 10 : (kind === 'long' ? 2 : 1);
-  const payload = buildPayload(kind, sourceTextFor(key, sid), angle, styleIdx, n, priorTextFor(key, sid));
+  const payload = buildPayload(kind, sourceTextFor(key, sid), angle, styleIdx, n, priorTextFor(key, sid) + charContextFor(sid));
   apiPost('/chat/completions', payload, function (code, body) {
     st.loading = false;
     if (code === -2) { st.err = 'nokey'; render(); return; }
@@ -448,6 +449,7 @@ function vHome() {
   return `<div class="screen home">
     ${bgLayer('deep')}
     <button class="menu-btn" data-act="drawer">☰</button>
+    <button class="char-btn" data-act="go" data-view="chars">角色</button>
     <div class="home-brand">
       <div class="hb-1">${esc(S.author.id || '长夜')}</div>
       <div class="hb-2">${has ? S.series.length + ' 个系列' : '从一个系列开始'}</div>
@@ -476,6 +478,9 @@ function drawerHtml() {
       ${S.series.length ? rows : '<div class="dr-empty">还没有系列<br>点右上角 ＋ 新建</div>'}
     </div>
     <div class="dr-foot">
+      <div class="dr-item foot" data-act="go" data-view="chars">
+        <div class="dr-title">角色库</div>
+      </div>
       <div class="dr-item foot" data-act="go" data-view="settings">
         <div class="dr-title">⚙　设置</div>
       </div>
@@ -510,6 +515,11 @@ function vSeries() {
             <div class="txt"><div class="t">${e.t}</div><div class="d">${e.d}</div></div>
             <div class="arrow">›</div>
           </div>`).join('')}
+        </div>
+        <div class="entry" style="margin:0 0 4px" data-act="serieschars" data-sid="${s.id}">
+          <div class="ico">${ICO.spark}</div>
+          <div class="txt"><div class="t">角色</div><div class="d">${(s.charIds || []).length ? (s.charIds || []).length + ' 个已加入' : '把角色库里的角色加入本系列'}</div></div>
+          <div class="arrow">›</div>
         </div>
       </div>
     </div>
@@ -1307,9 +1317,375 @@ const PRESETS = {
 };
 
 /* ================= 渲染 ================= */
+/* ================= 角色制作 ================= */
+
+function charById(id) {
+  return (S.characters || []).filter(function (c) { return c.id === id; })[0] || null;
+}
+
+function charGet(obj, path) {
+  const ps = path.split('.');
+  let v = obj;
+  for (let i = 0; i < ps.length && v != null; i++) v = v[ps[i]];
+  return v == null ? '' : v;
+}
+
+function charSet(obj, path, val) {
+  const ps = path.split('.');
+  let v = obj;
+  for (let i = 0; i < ps.length - 1; i++) {
+    if (!v[ps[i]] || typeof v[ps[i]] !== 'object') v[ps[i]] = {};
+    v = v[ps[i]];
+  }
+  v[ps[ps.length - 1]] = val;
+}
+
+function newCharObj() {
+  return {
+    id: uid(), name: '', identity: '', background: '', avatar: '', hue: rnd(0, 359),
+    look: {}, outfits: '',
+    special: { combat: false },
+    personality: { keywords: '', contrast: '', scenes: '', line: '' },
+    speech: {}, relations: '', qa: [], at: Date.now(),
+  };
+}
+
+function charText(c) {
+  if (!c) return '';
+  const L = [];
+  L.push('【' + (c.name || '无名') + '】');
+  if (c.identity) L.push('身份：' + c.identity);
+  if (c.background) L.push('背景：' + c.background);
+  const look = [];
+  [['look.hairColor', '发色'], ['look.hairStyle', '发型'], ['look.eyeColor', '瞳色'],
+   ['look.height', '身高'], ['look.build', '体型'], ['look.skin', '肤色与面部'],
+   ['look.mark', '显著标记']].forEach(function (p) {
+    const v = charGet(c, p[0]);
+    if (v) look.push(p[1] + '：' + v);
+  });
+  if (look.length) L.push('外貌：' + look.join('；'));
+  if (c.outfits) L.push('服装：' + String(c.outfits).replace(/\n/g, '；'));
+  const sp = [];
+  [['special.race', '种族'], ['special.ability', '能力'], ['special.cost', '代价'],
+   ['special.world', '所属']].forEach(function (p) {
+    const v = charGet(c, p[0]);
+    if (v) sp.push(p[1] + '：' + v);
+  });
+  if (c.special && c.special.combat) {
+    const cb = [];
+    [['special.style', '风格'], ['special.weapon', '武器'], ['special.weak', '弱点']].forEach(function (p) {
+      const v = charGet(c, p[0]);
+      if (v) cb.push(p[1] + '：' + v);
+    });
+    if (cb.length) sp.push('战斗：' + cb.join('；'));
+  }
+  if (sp.length) L.push('特殊：' + sp.join('；'));
+  const pe = [];
+  if (c.personality && c.personality.keywords) pe.push('关键词：' + c.personality.keywords);
+  if (c.personality && c.personality.contrast) pe.push('反差：' + c.personality.contrast);
+  if (pe.length) L.push('性格：' + pe.join('；'));
+  if (c.personality && c.personality.scenes) L.push('场合反应：' + String(c.personality.scenes).replace(/\n/g, '；'));
+  if (c.personality && c.personality.line) L.push('台词示例：' + c.personality.line);
+  const sv = [];
+  [['speech.tics', '口癖'], ['speech.address', '称谓'], ['speech.punct', '标点习惯'],
+   ['speech.reg', '用词层次']].forEach(function (p) {
+    const v = charGet(c, p[0]);
+    if (v) sv.push(p[1] + '：' + v);
+  });
+  if (sv.length) L.push('说话方式：' + sv.join('；'));
+  if (c.relations) L.push('人物关系：' + String(c.relations).replace(/\n/g, '；'));
+  if (c.qa && c.qa.length) {
+    L.push('访谈补充：' + c.qa.map(function (x) { return x.q + '→' + x.a; }).join('；'));
+  }
+  return L.join('\n');
+}
+
+/* 系列生成时带上的角色上下文 */
+function charContextFor(sid) {
+  const s = seriesById(sid);
+  if (!s || !s.charIds || !s.charIds.length) return '';
+  const blocks = s.charIds.map(charById).filter(Boolean).map(function (c) {
+    let t = charText(c);
+    if (t.length > 800) t = t.slice(0, 800) + '……';
+    return t;
+  });
+  if (!blocks.length) return '';
+  return '【本系列的角色设定（写作时以此为准，不要写出与之外貌、性格、说话方式不符的内容）】\n' +
+    blocks.join('\n\n') + '\n\n';
+}
+
+/* ---------- 列表 ---------- */
+function charAvatarHTML(c, size) {
+  const hue = (c && c.hue) || 20;
+  const st = 'width:' + size + 'px;height:' + size + 'px;background:hsl(' + hue + ' 40% 42%)';
+  if (c && c.avatar) return '<div class="avatar-lg" style="' + st + '"><img src="' + c.avatar + '" alt=""></div>';
+  return '<div class="avatar-lg" style="' + st + '">' + esc(((c && c.name) || '角')[0]) + '</div>';
+}
+
+function vChars() {
+  const list = S.characters || [];
+  const rows = list.map(function (c) {
+    return '<div class="entry" style="margin:0 14px 8px" data-act="openchar" data-cid="' + c.id + '" data-longpress="char">' +
+      charAvatarHTML(c, 46) +
+      '<div class="txt"><div class="t">' + esc(c.name || '无名') + '</div>' +
+      '<div class="d">' + esc(c.identity || '还没填身份') + '</div></div>' +
+      '<div class="arrow">›</div></div>';
+  }).join('');
+  return '<div class="screen">' +
+    hdr('角色库', { act: '＋ 新建', actAct: 'newchar' }) +
+    '<div class="scroll" style="padding-top:6px">' +
+    (list.length ? rows : emptyBox('还没有角色', '建一张卡：外貌、性格、说话方式', '新建角色', 'newchar')) +
+    '<div style="height:40px"></div></div></div>';
+}
+
+/* ---------- 详情 ---------- */
+function charSection(title, rows) {
+  const body = rows.filter(function (r) { return r[1]; })
+    .map(function (r) {
+      return '<div class="c-row"><div class="c-k">' + esc(r[0]) + '</div><div class="c-v">' + esc(r[1]) + '</div></div>';
+    }).join('');
+  if (!body) return '';
+  return '<div class="c-sect"><div class="c-h">' + esc(title) + '</div>' + body + '</div>';
+}
+
+function vChar() {
+  const c = charById(cur().params.cid);
+  if (!c) { nav.stack.pop(); return vChars(); }
+  const look = charSection('外貌', [
+    ['发色', charGet(c, 'look.hairColor')], ['发型', charGet(c, 'look.hairStyle')],
+    ['瞳色', charGet(c, 'look.eyeColor')], ['身高', charGet(c, 'look.height')],
+    ['体型', charGet(c, 'look.build')], ['肤色与面部', charGet(c, 'look.skin')],
+    ['显著标记', charGet(c, 'look.mark')],
+  ]);
+  const outfit = c.outfits ? charSection('服装', [['套装', c.outfits]]) : '';
+  const special = charSection('特殊设定', [
+    ['种族', charGet(c, 'special.race')], ['能力', charGet(c, 'special.ability')],
+    ['代价', charGet(c, 'special.cost')], ['所属', charGet(c, 'special.world')],
+    ['战斗', c.special && c.special.combat ? '参与' : ''],
+    ['风格', c.special && c.special.combat ? charGet(c, 'special.style') : ''],
+    ['武器', c.special && c.special.combat ? charGet(c, 'special.weapon') : ''],
+    ['弱点', c.special && c.special.combat ? charGet(c, 'special.weak') : ''],
+  ]);
+  const persona = charSection('性格', [
+    ['关键词', c.personality && c.personality.keywords],
+    ['反差', c.personality && c.personality.contrast],
+    ['场合反应', c.personality && c.personality.scenes],
+    ['台词', c.personality && c.personality.line],
+  ]);
+  const speech = charSection('说话方式', [
+    ['口癖', charGet(c, 'speech.tics')], ['称谓', charGet(c, 'speech.address')],
+    ['标点', charGet(c, 'speech.punct')], ['用词', charGet(c, 'speech.reg')],
+  ]);
+  const rel = c.relations ? charSection('人物关系', [['关系', c.relations]]) : '';
+  const qa = (c.qa && c.qa.length)
+    ? '<div class="c-sect"><div class="c-h">访谈补充</div>' + c.qa.map(function (x) {
+        return '<div class="c-row"><div class="c-k">' + esc(x.q) + '</div><div class="c-v">' + esc(x.a) + '</div></div>';
+      }).join('') + '</div>'
+    : '';
+
+  return '<div class="screen">' +
+    hdr(c.name || '角色', { act: '编辑', actAct: 'charedit' }) +
+    '<div class="scroll">' +
+    '<div class="c-hero">' + charAvatarHTML(c, 72) + '<div class="c-nm">' + esc(c.name || '无名') + '</div>' +
+    '<div class="c-id">' + esc(c.identity || '还没填身份') + '</div></div>' +
+    (c.background ? '<div class="c-bg">' + esc(c.background) + '</div>' : '') +
+    look + outfit + special + persona + speech + rel + qa +
+    '<div class="api-actions" style="flex-wrap:wrap;gap:8px">' +
+    '<button class="btn-line" data-act="charask">让 AI 追问</button>' +
+    '<button class="btn-line" data-act="charcopy">复制文本</button>' +
+    '<button class="btn-line" data-act="charcodex">另存为设定</button>' +
+    '</div>' +
+    '<div class="pad dim small" style="text-align:center;margin-top:10px">在系列页可把角色加入系列</div>' +
+    '<div style="height:40px"></div></div></div>';
+}
+
+/* ---------- 编辑 ---------- */
+const CHAR_FIELDS = [
+  ['name', '名字', 'in'],
+  ['identity', '身份（一句话）', 'in'],
+  ['background', '背景故事', 'ta'],
+  ['look.hairColor', '发色', 'in'],
+  ['look.hairStyle', '发型', 'in'],
+  ['look.eyeColor', '瞳色', 'in'],
+  ['look.height', '身高', 'in'],
+  ['look.build', '体型', 'in'],
+  ['look.skin', '肤色与面部（痣/疤/纹路）', 'ta'],
+  ['look.mark', '显著标记（兽耳/鳞片/义肢）', 'in'],
+  ['outfits', '服装（一行一套：场合|上装|下装|鞋|饰品|物件）', 'ta'],
+  ['special.race', '种族 / 出身', 'in'],
+  ['special.ability', '特殊体质或能力', 'ta'],
+  ['special.cost', '代价与限制', 'ta'],
+  ['special.world', '世界观归属（势力/时代）', 'in'],
+  ['special.style', '战斗风格（无战斗可空）', 'in'],
+  ['special.weapon', '武器', 'in'],
+  ['special.weak', '弱点', 'in'],
+  ['personality.keywords', '性格关键词（3–5 个，逗号分隔）', 'in'],
+  ['personality.contrast', '反差（外表与内里的落差）', 'ta'],
+  ['personality.scenes', '场合反应（一行一条：场合|反应）', 'ta'],
+  ['personality.line', '台词示例', 'ta'],
+  ['speech.tics', '口癖与语气词', 'in'],
+  ['speech.address', '称谓习惯（自称 / 称呼别人）', 'in'],
+  ['speech.punct', '标点习惯（省略号/感叹号/破折号）', 'in'],
+  ['speech.reg', '口音与用词层次', 'in'],
+  ['relations', '人物关系（一行一条：对方|关系|冲突点）', 'ta'],
+];
+
+function curCharDraft() {
+  const c = cur();
+  return c.params.draft || charById(c.params.cid) || null;
+}
+
+function vCharEdit() {
+  const c = curCharDraft() || newCharObj();
+  const fields = CHAR_FIELDS.map(function (f) {
+    const v = esc(charGet(c, f[0]));
+    if (f[2] === 'ta') {
+      return '<div class="ed-f"><label>' + esc(f[1]) + '</label><textarea class="cf" data-k="' + f[0] + '">' + v + '</textarea></div>';
+    }
+    return '<div class="ed-f"><label>' + esc(f[1]) + '</label><input class="cf" data-k="' + f[0] + '" value="' + v + '"></div>';
+  }).join('');
+  const av = '<div class="ed-f"><label>头像</label><div class="av-row">' + charAvatarHTML(c, 64) +
+    '<button class="btn-ghost" data-act="charavatar">从相册选择</button></div></div>';
+  const combat = '<div class="ed-f"><label>参与战斗</label><div class="switch ' + (c.special && c.special.combat ? 'on' : '') + '" data-act="charcombat"></div></div>';
+  const isNew = !charById(cur().params.cid);
+  return '<div class="screen">' +
+    '<div class="hdr"><button class="back" data-act="back"><span class="arw">‹</span>取消</button>' +
+    '<div class="title">' + (isNew ? '新建角色' : '编辑角色') + '</div>' +
+    '<button class="act primary" data-act="charsave">保存</button></div>' +
+    '<div class="scroll ed-scroll">' + av + fields + combat + '<div class="ed-gap"></div></div></div>';
+}
+
+function charSave() {
+  const c = cur();
+  let obj = curCharDraft();
+  const isNew = !obj;
+  if (!obj) obj = newCharObj();
+  Array.prototype.forEach.call(document.querySelectorAll('.cf'), function (el) {
+    charSet(obj, el.dataset.k, el.value.trim());
+  });
+  if (!obj.name) obj.name = '无名';
+  obj.at = Date.now();
+  S.characters = S.characters || [];
+  if (isNew) S.characters.unshift(obj);
+  save();
+  toast('已保存');
+  nav.stack.pop();
+  if (cur().view !== 'char') nav.stack.push({ view: 'char', params: { cid: obj.id } });
+  render();
+}
+
+/* ---------- 让 AI 追问 ---------- */
+function charAsk() {
+  const c = charById(cur().params.cid);
+  if (!c) return;
+  if (!S.api.key) { toast('先在设置里填 API Key'); return; }
+  toast('正在想问题…');
+  const sys = '你在帮一位小说作者把角色设定问清楚。只提问，不替他写内容。\n' +
+    '根据已填的信息和性格关键词，给出 3 个具体、好回答的问题。\n' +
+    '不要问「他的童年怎么样」这种大问题，要问「他被当众叫错名字时会怎么反应」这种具体情境。\n' +
+    '如果性格关键词里有内容，优先围绕它造情境。\n' +
+    '只输出 JSON：{"questions":["问题1","问题2","问题3"]}';
+  const user = '角色当前信息：\n' + charText(c) + '\n\n请针对还空着或写得最薄的部分提问。';
+  apiPost('/chat/completions', {
+    model: S.api.model || 'deepseek-flash',
+    temperature: 0.9,
+    max_tokens: 900,
+    messages: [{ role: 'system', content: sys }, { role: 'user', content: user }],
+  }, function (code, body) {
+    if (code !== 200) { toast('提问失败：HTTP ' + code); return; }
+    const r = extractJson(body);
+    if (r.err || !r.data || !r.data.questions || !r.data.questions.length) { toast('没拿到问题'); return; }
+    const qs = r.data.questions.slice(0, 4);
+    nav.stack.push({ view: 'charask', params: { cid: c.id, qs: qs } });
+    render();
+  });
+}
+
+function vCharAsk() {
+  const qs = cur().params.qs || [];
+  const body = qs.map(function (q, i) {
+    return '<div class="ed-f"><label>' + (i + 1) + '. ' + esc(q) + '</label>' +
+      '<textarea class="qa-a" data-i="' + i + '"></textarea></div>';
+  }).join('');
+  return '<div class="screen">' +
+    '<div class="hdr"><button class="back" data-act="back"><span class="arw">‹</span>跳过</button>' +
+    '<div class="title">追问</div>' +
+    '<button class="act primary" data-act="qasave">保存</button></div>' +
+    '<div class="scroll ed-scroll">' +
+    '<div class="pad dim small" style="line-height:1.8">只用来把设定问清楚。不想答的直接空着。</div>' +
+    body + '<div class="ed-gap"></div></div></div>';
+}
+
+function charQaSave() {
+  const c = charById(cur().params.cid);
+  if (!c) { nav.stack.pop(); render(); return; }
+  const qs = cur().params.qs || [];
+  c.qa = c.qa || [];
+  Array.prototype.forEach.call(document.querySelectorAll('.qa-a'), function (el) {
+    const i = parseInt(el.dataset.i, 10);
+    const a = el.value.trim();
+    if (a) c.qa.push({ q: qs[i], a: a });
+  });
+  save();
+  toast('已记下');
+  nav.stack.pop();
+  render();
+}
+
+/* ---------- 动作 ---------- */
+function charCopyText() {
+  const c = charById(cur().params.cid);
+  if (!c) return;
+  const t = charText(c);
+  const ta = document.createElement('textarea');
+  ta.value = t;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  toast(ok ? '已复制' : '复制失败，可长按选择');
+}
+
+function charToCodex() {
+  const c = charById(cur().params.cid);
+  if (!c) return;
+  if (!S.series.length) { toast('还没有系列'); return; }
+  openSheet('<div class="sh-title">另存为设定</div>' +
+    S.series.map(function (s) {
+      return '<div class="srow" data-act="charcodex2" data-cid="' + c.id + '" data-sid="' + s.id + '">' + esc(s.title) + '</div>';
+    }).join(''));
+}
+
+function charCodex2(cid, sid) {
+  const c = charById(cid);
+  const s = seriesById(sid);
+  if (!c || !s) return;
+  s.codex = s.codex || [];
+  s.codex.push({ id: uid(), title: '角色：' + (c.name || '无名'), body: charText(c) });
+  save(); closeSheet(); toast('已写入「' + s.title + '」的设定集');
+}
+
+/* 系列页：把角色加入本系列 */
+function seriesCharSheet(sid) {
+  const s = seriesById(sid);
+  if (!s) return;
+  const chars = S.characters || [];
+  if (!chars.length) { toast('角色库是空的'); return; }
+  const rows = chars.map(function (c) {
+    const on = (s.charIds || []).indexOf(c.id) > -1;
+    return '<div class="srow' + (on ? ' on' : '') + '" data-act="togglechar" data-cid="' + c.id + '">' +
+      (on ? '✓ ' : '') + esc(c.name || '无名') + '</div>';
+  }).join('');
+  openSheet('<div class="sh-title">加入系列角色</div>' + rows);
+}
+
 const VIEWS = {
   home: vHome, series: vSeries, works: vWorks, work: vWork, codex: vCodex,
-  sreview: vSReview, doujin: vDoujin, djfav: vDjFav, djread: vDjRead, qedit: vQEdit, settings: vSettings, bgmgr: vBgMgr, real: vReal, editor: vEditor, tune: vTune,
+  sreview: vSReview, doujin: vDoujin, djfav: vDjFav, djread: vDjRead, qedit: vQEdit,
+  chars: vChars, char: vChar, charedit: vCharEdit, charask: vCharAsk, settings: vSettings, bgmgr: vBgMgr, real: vReal, editor: vEditor, tune: vTune,
 };
 
 function resolvedTheme() {
@@ -1447,7 +1823,7 @@ function editorSave() {
   });
   if (mode === 'series') {
     if (!v.title.trim()) { toast('书名不能为空'); return; }
-    const s = { id: uid(), title: v.title.trim(), intro: (v.intro || '').trim(), works: [], codex: [], gen: {}, personas: null };
+    const s = { id: uid(), title: v.title.trim(), intro: (v.intro || '').trim(), works: [], codex: [], charIds: [], gen: {}, personas: null };
     S.series.unshift(s); save();
     nav.stack.pop();
     nav.stack.push({ view: 'series', params: { sid: s.id } });
@@ -1550,6 +1926,42 @@ document.addEventListener('click', (e) => {
   if (act === 'newcodex') { newCodex(); return; }
 
   if (act === 'chip') { applySearch(el.dataset.w); return; }
+  if (act === 'newchar') { haptic(); nav.stack.push({ view: 'charedit', params: { draft: newCharObj() } }); render(); return; }
+  if (act === 'openchar') { haptic(); go('char', { cid: el.dataset.cid }); return; }
+  if (act === 'charedit') { haptic(); nav.stack.push({ view: 'charedit', params: { cid: cur().params.cid } }); render(); return; }
+  if (act === 'charsave') { charSave(); return; }
+  if (act === 'charavatar') { pickAvatar(function (d) { const o = curCharDraft(); if (o) { o.avatar = d; save(); render(); } }); return; }
+  if (act === 'charcombat') {
+    const o = curCharDraft();
+    if (o) { o.special = o.special || {}; o.special.combat = !o.special.combat; save(); render(); }
+    return;
+  }
+  if (act === 'charask') { charAsk(); return; }
+  if (act === 'qasave') { charQaSave(); return; }
+  if (act === 'charcopy') { charCopyText(); return; }
+  if (act === 'charcodex') { charToCodex(); return; }
+  if (act === 'charcodex2') { charCodex2(el.dataset.cid, el.dataset.sid); return; }
+  if (act === 'serieschars') { haptic(); seriesCharSheet(el.dataset.sid); return; }
+  if (act === 'togglechar') {
+    const ss = seriesById(cur().params.sid);
+    if (ss) {
+      ss.charIds = ss.charIds || [];
+      const i = ss.charIds.indexOf(el.dataset.cid);
+      if (i > -1) ss.charIds.splice(i, 1); else ss.charIds.push(el.dataset.cid);
+      save();
+      closeSheet();
+      seriesCharSheet(ss.id);
+      render();
+    }
+    return;
+  }
+  if (act === 'chardelete') {
+    S.characters = (S.characters || []).filter(function (x) { return x.id !== el.dataset.cid; });
+    save(); closeSheet();
+    if (cur().view === 'char') nav.stack.pop();
+    render(); toast('已删除');
+    return;
+  }
   if (act === 'qedit') {
     haptic();
     go('qedit', { sid: c.params.sid, q: c.params.angle || '' });
@@ -2085,6 +2497,10 @@ function longPress(el) {
   if (kind === 'cv') {
     openSheet(`<div class="sh-title">这篇长评</div>
       <div class="srow danger" data-act="delcomment" data-key="${el.dataset.key}" data-cid="${el.dataset.cid}">删除这一篇</div>`);
+  }
+  if (kind === 'char') {
+    openSheet(`<div class="sh-title">这个角色</div>
+      <div class="srow danger" data-act="chardelete" data-cid="${el.dataset.cid}">删除</div>`);
   }
   if (kind === 'dj') {
     const ss = seriesById(cur().params.sid);

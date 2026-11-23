@@ -1,7 +1,7 @@
 {
-  "versionCode": 35,
-  "versionName": "0.32",
+  "versionCode": 36,
+  "versionName": "0.33",
   "apk": "https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/dist/NightRead.apk",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "正文顺序号与整体排序；单章评论带上此前篇目；清空数据移到底部"
+  "notes": "新增角色制作：角色库、字段编辑、AI追问、复制与另存为设定、加入系列"
 }
