@@ -343,7 +343,7 @@ body::before{
 .reader .lead{color:var(--muted);font-size:12px;letter-spacing:1px;text-align:center;text-indent:0;margin-bottom:22px}
 
 /* ============ 搜索 ============ */
-.searchwrap{padding:0 18px 12px}
+.searchwrap{padding:0 0 12px}
 .searchbar{
   display:flex;align-items:center;gap:8px;height:42px;padding:0 14px;
   background:var(--surface-2);border-radius:21px;border:1px solid transparent;
@@ -351,7 +351,7 @@ body::before{
 }
 .searchbar:focus-within{border-color:var(--accent);background:var(--surface)}
 .searchbar input{
-  flex:1;border:0;background:transparent;outline:none;font-size:14px;color:var(--ink);font-family:inherit;
+  flex:1;min-width:0;width:100%;border:0;background:transparent;outline:none;font-size:14px;color:var(--ink);font-family:inherit;
 }
 .searchbar input::placeholder{color:var(--muted)}
 .searchbar .mag{color:var(--muted);font-size:15px}
@@ -961,5 +961,10 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .hist::-webkit-scrollbar-track{background:transparent}
 
 /* 胶囊内的历史按钮：弱化，不抢搜索 */
-.searchbar .qhist{border:0;background:transparent;color:var(--muted);font-size:13px;padding:0 6px;height:30px;cursor:pointer;flex:0 0 auto}
+.searchbar .qhist{border:1px solid var(--line);background:transparent;color:var(--ink-2);font-size:12px;padding:0 9px;height:28px;border-radius:9px;cursor:pointer;flex:0 0 auto;margin-right:2px}
 .searchbar .qhist:active{color:var(--ink)}
+
+.searchbar{padding-right:5px}
+.searchbar .qgo{flex:0 0 auto}
+.searchbar .qhist{flex:0 0 auto}
+.searchline{min-width:0}
