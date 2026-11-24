@@ -998,3 +998,17 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .c-row:first-of-type{border-top:0}
 .c-k{flex:0 0 84px;font-size:12px;color:var(--muted);padding-top:2px}
 .c-v{flex:1;font-size:14px;line-height:1.7;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+
+/* 首页左上角按钮组 */
+.home-top{position:absolute;top:calc(var(--inset-top,0px) + 8px);left:14px;display:flex;gap:10px;z-index:40}
+.home-ico{height:42px;min-width:42px;padding:0 12px;border-radius:14px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.28);color:#fff;font-size:16px;backdrop-filter:blur(10px);cursor:pointer;line-height:1}
+.home-ico.wide{font-size:14px;letter-spacing:1px}
+
+/* 角色编辑：分组折叠 */
+.cf-grp{margin:0 0 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.cf-head{display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 16px;background:none;border:0;color:var(--ink);font:600 15px inherit;cursor:pointer}
+.cf-arw{color:var(--muted);font-size:16px;transition:transform .18s;transform:rotate(0deg)}
+.cf-grp.open .cf-arw{transform:rotate(90deg)}
+.cf-body{display:none;padding:0 2px 6px}
+.cf-grp.open .cf-body{display:block}
+.cf-body .ed-f{padding:0 14px}

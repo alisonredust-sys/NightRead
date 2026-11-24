@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 36;
-const APP_VER_NAME = '0.33';
+const APP_VER = 37;
+const APP_VER_NAME = '0.34';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -448,8 +448,10 @@ function vHome() {
   const has = S.series.length > 0;
   return `<div class="screen home">
     ${bgLayer('deep')}
-    <button class="menu-btn" data-act="drawer">☰</button>
-    <button class="char-btn" data-act="go" data-view="chars">角色</button>
+    <div class="home-top">
+      <button class="home-ico" data-act="drawer">☰</button>
+      <button class="home-ico wide" data-act="go" data-view="chars">角色</button>
+    </div>
     <div class="home-brand">
       <div class="hb-1">${esc(S.author.id || '长夜')}</div>
       <div class="hb-2">${has ? S.series.length + ' 个系列' : '从一个系列开始'}</div>
@@ -1500,34 +1502,31 @@ function vChar() {
 }
 
 /* ---------- 编辑 ---------- */
-const CHAR_FIELDS = [
-  ['name', '名字', 'in'],
-  ['identity', '身份（一句话）', 'in'],
-  ['background', '背景故事', 'ta'],
-  ['look.hairColor', '发色', 'in'],
-  ['look.hairStyle', '发型', 'in'],
-  ['look.eyeColor', '瞳色', 'in'],
-  ['look.height', '身高', 'in'],
-  ['look.build', '体型', 'in'],
-  ['look.skin', '肤色与面部（痣/疤/纹路）', 'ta'],
-  ['look.mark', '显著标记（兽耳/鳞片/义肢）', 'in'],
-  ['outfits', '服装（一行一套：场合|上装|下装|鞋|饰品|物件）', 'ta'],
-  ['special.race', '种族 / 出身', 'in'],
-  ['special.ability', '特殊体质或能力', 'ta'],
-  ['special.cost', '代价与限制', 'ta'],
-  ['special.world', '世界观归属（势力/时代）', 'in'],
-  ['special.style', '战斗风格（无战斗可空）', 'in'],
-  ['special.weapon', '武器', 'in'],
-  ['special.weak', '弱点', 'in'],
-  ['personality.keywords', '性格关键词（3–5 个，逗号分隔）', 'in'],
-  ['personality.contrast', '反差（外表与内里的落差）', 'ta'],
-  ['personality.scenes', '场合反应（一行一条：场合|反应）', 'ta'],
-  ['personality.line', '台词示例', 'ta'],
-  ['speech.tics', '口癖与语气词', 'in'],
-  ['speech.address', '称谓习惯（自称 / 称呼别人）', 'in'],
-  ['speech.punct', '标点习惯（省略号/感叹号/破折号）', 'in'],
-  ['speech.reg', '口音与用词层次', 'in'],
-  ['relations', '人物关系（一行一条：对方|关系|冲突点）', 'ta'],
+const CHAR_GROUPS = [
+  { k: 'base', t: '基本信息', fields: [
+    ['name', '名字', 'in'], ['identity', '身份（一句话）', 'in'], ['background', '背景故事', 'ta']] },
+  { k: 'look', t: '外貌', fields: [
+    ['look.hairColor', '发色', 'in'], ['look.hairStyle', '发型', 'in'],
+    ['look.eyeColor', '瞳色', 'in'], ['look.height', '身高', 'in'],
+    ['look.build', '体型', 'in'], ['look.skin', '肤色与面部（痣/疤/纹路）', 'ta'],
+    ['look.mark', '显著标记（兽耳/鳞片/义肢）', 'in']] },
+  { k: 'outfit', t: '服装', fields: [
+    ['outfits', '一行一套：场合|上装|下装|鞋|饰品|物件', 'ta']] },
+  { k: 'special', t: '特殊设定', fields: [
+    ['special.race', '种族 / 出身', 'in'], ['special.ability', '特殊体质或能力', 'ta'],
+    ['special.cost', '代价与限制', 'ta'], ['special.world', '世界观归属（势力/时代）', 'in'],
+    ['special.style', '战斗风格（无战斗可空）', 'in'], ['special.weapon', '武器', 'in'],
+    ['special.weak', '弱点', 'in']] },
+  { k: 'persona', t: '性格', fields: [
+    ['personality.keywords', '性格关键词（3–5 个，逗号分隔）', 'in'],
+    ['personality.contrast', '反差（外表与内里的落差）', 'ta'],
+    ['personality.scenes', '场合反应（一行一条：场合|反应）', 'ta'],
+    ['personality.line', '台词示例', 'ta']] },
+  { k: 'speech', t: '说话方式', fields: [
+    ['speech.tics', '口癖与语气词', 'in'], ['speech.address', '称谓习惯（自称 / 称呼别人）', 'in'],
+    ['speech.punct', '标点习惯（省略号/感叹号/破折号）', 'in'], ['speech.reg', '口音与用词层次', 'in']] },
+  { k: 'rel', t: '人物关系', fields: [
+    ['relations', '一行一条：对方|关系|冲突点', 'ta']] },
 ];
 
 function curCharDraft() {
@@ -1535,24 +1534,42 @@ function curCharDraft() {
   return c.params.draft || charById(c.params.cid) || null;
 }
 
+function charOpenState() {
+  if (!nav.tab.charGrp) nav.tab.charGrp = { base: true };
+  return nav.tab.charGrp;
+}
+
 function vCharEdit() {
   const c = curCharDraft() || newCharObj();
-  const fields = CHAR_FIELDS.map(function (f) {
-    const v = esc(charGet(c, f[0]));
-    if (f[2] === 'ta') {
-      return '<div class="ed-f"><label>' + esc(f[1]) + '</label><textarea class="cf" data-k="' + f[0] + '">' + v + '</textarea></div>';
-    }
-    return '<div class="ed-f"><label>' + esc(f[1]) + '</label><input class="cf" data-k="' + f[0] + '" value="' + v + '"></div>';
+  const open = charOpenState();
+
+  const combat = '<div class="ed-f"><label>参与战斗</label><div class="switch ' + (c.special && c.special.combat ? 'on' : '') + '" data-act="charcombat"></div></div>';
+
+  const grpHTML = CHAR_GROUPS.map(function (g) {
+    const isOpen = !!open[g.k];
+    const body = g.fields.map(function (f) {
+      const v = esc(charGet(c, f[0]));
+      if (f[2] === 'ta') {
+        return '<div class="ed-f"><label>' + esc(f[1]) + '</label><textarea class="cf" data-k="' + f[0] + '">' + v + '</textarea></div>';
+      }
+      return '<div class="ed-f"><label>' + esc(f[1]) + '</label><input class="cf" data-k="' + f[0] + '" value="' + v + '"></div>';
+    }).join('') + (g.k === 'special' ? combat : '');
+    return '<div class="cf-grp' + (isOpen ? ' open' : '') + '">' +
+      '<button class="cf-head" data-act="cftoggle" data-g="' + g.k + '">' +
+      '<span>' + esc(g.t) + '</span><span class="cf-arw">›</span></button>' +
+      '<div class="cf-body">' + body + '</div></div>';
   }).join('');
+
   const av = '<div class="ed-f"><label>头像</label><div class="av-row">' + charAvatarHTML(c, 64) +
     '<button class="btn-ghost" data-act="charavatar">从相册选择</button></div></div>';
-  const combat = '<div class="ed-f"><label>参与战斗</label><div class="switch ' + (c.special && c.special.combat ? 'on' : '') + '" data-act="charcombat"></div></div>';
   const isNew = !charById(cur().params.cid);
+
   return '<div class="screen">' +
     '<div class="hdr"><button class="back" data-act="back"><span class="arw">‹</span>取消</button>' +
     '<div class="title">' + (isNew ? '新建角色' : '编辑角色') + '</div>' +
     '<button class="act primary" data-act="charsave">保存</button></div>' +
-    '<div class="scroll ed-scroll">' + av + fields + combat + '<div class="ed-gap"></div></div></div>';
+    '<div class="scroll ed-scroll">' + av + grpHTML +
+    '<div class="ed-gap"></div></div></div>';
 }
 
 function charSave() {
@@ -1930,6 +1947,13 @@ document.addEventListener('click', (e) => {
   if (act === 'openchar') { haptic(); go('char', { cid: el.dataset.cid }); return; }
   if (act === 'charedit') { haptic(); nav.stack.push({ view: 'charedit', params: { cid: cur().params.cid } }); render(); return; }
   if (act === 'charsave') { charSave(); return; }
+  if (act === 'cftoggle') {
+    const g = el.dataset.g;
+    const box = el.parentNode;
+    box.classList.toggle('open');
+    charOpenState()[g] = box.classList.contains('open');
+    return;
+  }
   if (act === 'charavatar') { pickAvatar(function (d) { const o = curCharDraft(); if (o) { o.avatar = d; save(); render(); } }); return; }
   if (act === 'charcombat') {
     const o = curCharDraft();
