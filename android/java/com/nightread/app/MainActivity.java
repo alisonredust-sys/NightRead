@@ -316,8 +316,8 @@ public class MainActivity extends Activity {
                     try {
                         java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
                         c.setRequestMethod("GET");
-                        c.setConnectTimeout(8000);
-                        c.setReadTimeout(8000);
+                        c.setConnectTimeout(20000);
+                        c.setReadTimeout(20000);
                         if (key != null && !key.isEmpty()) {
                             c.setRequestProperty("Authorization", "Bearer " + key);
                         }

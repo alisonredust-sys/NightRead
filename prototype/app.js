@@ -6,9 +6,13 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 38;
-const APP_VER_NAME = '0.35';
+const APP_VER = 39;
+const APP_VER_NAME = '0.36';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
+const UPDATE_URLS = [
+  'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json',
+  'https://cdn.jsdelivr.net/gh/alisonredust-sys/NightRead@main/version.json',
+];
 
 const DEFAULT_TUNE = {
   tempShort: 1.0, tempLong: 0.85, tempDoujin: 0.9,
@@ -1172,23 +1176,29 @@ function apiGetUrl(url, cb) {
 }
 
 function checkUpdate() {
-  const url = DEFAULT_UPDATE_URL;
   toast('检查中…');
-  apiGetUrl(url, function (code, body) {
-    if (code !== 200) { openSheet('<div class="sh-title">检查失败</div><div class="srow" style="cursor:default">HTTP ' + code + '</div>'); return; }
+  tryUpdate(0);
+}
+
+function tryUpdate(i) {
+  if (i >= UPDATE_URLS.length) {
+    openSheet('<div class="sh-title">检查失败</div>' +
+      '<div class="srow" style="cursor:default;line-height:1.7">两个更新地址都连不上。可能是网络被拦截，或 GitHub 暂时不可达。</div>' +
+      '<div class="srow" style="cursor:default;font-size:12px;color:var(--muted);line-height:1.6">可以挂梯子后重试，或过一会儿再点。</div>');
+    return;
+  }
+  apiGetUrl(UPDATE_URLS[i], function (code, body) {
+    if (code !== 200) { tryUpdate(i + 1); return; }
     let j = null;
     try { j = JSON.parse(body); } catch (e) { }
-    if (!j || !j.versionCode) {
-      openSheet('<div class="sh-title">地址不是 version.json</div><div class="srow" style="cursor:default">' + esc(String(body).slice(0, 80)) + '</div>');
-      return;
-    }
+    if (!j || !j.versionCode) { tryUpdate(i + 1); return; }
     if (j.versionCode <= APP_VER) {
       openSheet('<div class="sh-title">已是最新</div><div class="srow" style="cursor:default">当前 v' + APP_VER_NAME + '（' + APP_VER + '），线上 ' + esc(j.versionName || '') + '（' + j.versionCode + '）</div>');
       return;
     }
     openSheet('<div class="sh-title">有新版本 v' + esc(j.versionName || '') + '</div>' +
       '<div class="srow" style="cursor:default;line-height:1.7">' + esc(j.notes || '') + '</div>' +
-      '<div class="srow" data-act="doupdate" data-url="' + esc(j.apk || '') + '">立即更新</div>' +
+      '<div class="srow" data-act="doupdate" data-url="' + esc(j.apk || '') + '" data-alt="' + esc(j.apk2 || '') + '">立即更新</div>' +
       '<div class="srow" style="cursor:default;font-size:12px;color:var(--muted);line-height:1.6">下载完成后会弹出系统安装界面，按提示确认即可。</div>');
   });
 }
@@ -2135,6 +2145,7 @@ document.addEventListener('click', (e) => {
   if (act === 'doupdate') {
     const u = el.dataset.url;
     if (!u) { toast('没有下载地址'); return; }
+    window.__apkAlt = el.dataset.alt || '';
     closeSheet();
     if (window.Android && Android.downloadApk) {
       Android.downloadApk(u, '');
@@ -2553,8 +2564,15 @@ stage.addEventListener('touchend', (e) => {
 /* ================= 启动 ================= */
 window.__apkDone = function (status, msg) {
   try {
-    if (status === 1) toast('下载完成，正在打开安装界面');
-    else toast('下载失败' + (msg ? '：' + msg : ''));
+    if (status === 1) { toast('下载完成，正在打开安装界面'); return; }
+    const alt = window.__apkAlt;
+    if (alt && window.Android && Android.downloadApk) {
+      window.__apkAlt = '';
+      toast('换备用地址重试…');
+      Android.downloadApk(alt, '');
+      return;
+    }
+    toast('下载失败' + (msg ? '：' + msg : ''));
   } catch (e) {}
 };
 

@@ -1,7 +1,8 @@
 {
-  "versionCode": 38,
-  "versionName": "0.35",
+  "versionCode": 39,
+  "versionName": "0.36",
   "apk": "https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/dist/NightRead.apk",
+  "apk2": "https://cdn.jsdelivr.net/gh/alisonredust-sys/NightRead@main/dist/NightRead.apk",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "角色入口并入系列按钮组，间距与其他一致"
+  "notes": "检查更新改双地址+超时20秒，下载失败自动换镜像"
 }

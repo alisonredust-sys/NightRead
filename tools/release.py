@@ -30,17 +30,22 @@ def main():
     # 仓库地址 -> raw 安装包地址（App 直接下载这个文件）
     r = repo.rstrip('/')
     apk_url = ''
+    apk2 = ''
     if 'github.com/' in r:
         tail = r.split('github.com/')[-1]
         parts = [x for x in tail.split('/') if x]
         if len(parts) >= 2:
             owner, proj = parts[0], parts[1].replace('.git', '')
             apk_url = 'https://raw.githubusercontent.com/%s/%s/main/dist/NightRead.apk' % (owner, proj)
+            apk2 = 'https://cdn.jsdelivr.net/gh/%s/%s@main/dist/NightRead.apk' % (owner, proj)
+        else:
+            apk2 = ''
 
     meta = {
         'versionCode': code,
         'versionName': name,
         'apk': apk_url,
+        'apk2': apk2,
         'page': r + '/releases/latest',
         'notes': notes,
     }
