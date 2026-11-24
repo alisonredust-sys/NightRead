@@ -6,8 +6,8 @@ try { LS = window.localStorage; LS.setItem('__t', '1'); LS.removeItem('__t'); } 
 
 const DEFAULT_BG = 8; // 系统自带图集数量
 
-const APP_VER = 37;
-const APP_VER_NAME = '0.34';
+const APP_VER = 38;
+const APP_VER_NAME = '0.35';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/version.json';
 
 const DEFAULT_TUNE = {
@@ -517,11 +517,11 @@ function vSeries() {
             <div class="txt"><div class="t">${e.t}</div><div class="d">${e.d}</div></div>
             <div class="arrow">›</div>
           </div>`).join('')}
-        </div>
-        <div class="entry" style="margin:0 0 4px" data-act="serieschars" data-sid="${s.id}">
-          <div class="ico">${ICO.spark}</div>
-          <div class="txt"><div class="t">角色</div><div class="d">${(s.charIds || []).length ? (s.charIds || []).length + ' 个已加入' : '把角色库里的角色加入本系列'}</div></div>
-          <div class="arrow">›</div>
+          <div class="entry" data-act="serieschars" data-sid="${s.id}">
+            <div class="ico">${ICO.spark}</div>
+            <div class="txt"><div class="t">角色</div><div class="d">${(s.charIds || []).length ? (s.charIds || []).length + ' 个已加入' : '把角色库里的角色加入本系列'}</div></div>
+            <div class="arrow">›</div>
+          </div>
         </div>
       </div>
     </div>

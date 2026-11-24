@@ -1,7 +1,7 @@
 {
-  "versionCode": 37,
-  "versionName": "0.34",
+  "versionCode": 38,
+  "versionName": "0.35",
   "apk": "https://raw.githubusercontent.com/alisonredust-sys/NightRead/main/dist/NightRead.apk",
   "page": "https://github.com/alisonredust-sys/NightRead/releases/latest",
-  "notes": "首页按钮左对齐上移；角色编辑分组折叠"
+  "notes": "角色入口并入系列按钮组，间距与其他一致"
 }
